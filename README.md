@@ -1,157 +1,357 @@
-# NEURON
-
-> **Connect People. Connect Knowledge.**  
-> Personal Academic Intelligence System
-
----
-
-## 1. Overview & Identity
-
-**NEURON** is a minimalist, monochrome academic knowledge management system designed for university students. Unlike generic course dashboards or social platforms, NEURON represents an academic career through a hierarchical structure:
+<div align="center">
 
 ```
-SEMESTER (Top-level folder)
-   └── COURSES
-         └── COURSE KNOWLEDGE GRAPH (@xyflow/react)
-               ├── CENTRAL NODE: Course (code, title, credits, syllabus)
-               ├── SURROUNDING NODE 1: Relationships (contacts, roles, topics)
-               └── SURROUNDING NODE 2: Files (documents, categories, previews)
+ _   _ _____ _   _ ____   ___  _   _ 
+| \ | | ____| | | |  _ \ / _ \| \ | |
+|  \| |  _| | | | | |_) | | | |  \| |
+| |\  | |___| |_| |  _ <| |_| | |\  |
+|_| \_|_____|\___/|_| \_\\___/|_| \_|
 ```
 
-Outside individual course graphs exists a **Unified Semester Calendar** powered by FullCalendar, aggregating lectures, exams, assignment deadlines, and personal milestones across all courses in the active semester.
+### **Personal Academic Intelligence & Neural Knowledge Graph System**
+
+*Connect People. Connect Knowledge. Designed with an uncompromising monochrome aesthetic.*
 
 ---
 
-## 2. Design Philosophy: Strict Monochrome System
+[![GitHub Stars](https://img.shields.io/github/stars/Laxury-H/NEURON?style=for-the-badge&color=000000&labelColor=171717&logo=github)](https://github.com/Laxury-H/NEURON/stargazers)
+[![License: MIT](https://img.shields.io/badge/License-MIT-000000?style=for-the-badge&labelColor=171717)](LICENSE)
+[![Next.js 15](https://img.shields.io/badge/Next.js-15.5-000000?style=for-the-badge&logo=next.js&labelColor=171717)](https://nextjs.org/)
+[![TypeScript 5.8](https://img.shields.io/badge/TypeScript-5.8-000000?style=for-the-badge&logo=typescript&labelColor=171717)](https://www.typescriptlang.org/)
+[![React Flow](https://img.shields.io/badge/@xyflow/react-12.4-000000?style=for-the-badge&logo=diagramsdotnet&labelColor=171717)](https://reactflow.dev/)
+[![Supabase Ready](https://img.shields.io/badge/Supabase-PostgreSQL-000000?style=for-the-badge&logo=supabase&labelColor=171717)](https://supabase.com/)
+[![Tests Passing](https://img.shields.io/badge/Tests-13%2F13%20Passing-000000?style=for-the-badge&logo=node.js&labelColor=171717)](tests/neuron.test.mjs)
 
-NEURON strictly adheres to an **achromatic monochrome palette** inspired by Swiss typography and monochrome futurism:
+<br />
 
-- **Allowed Hues**: `#FFFFFF`, `#FAFAFA`, `#F5F5F5`, `#E5E5E5`, `#D4D4D4`, `#A3A3A3`, `#737373`, `#525252`, `#404040`, `#262626`, `#171717`, `#000000`.
-- **Zero Colors**: No blue, purple, cyan, green, yellow, orange, or pink badges or event indicators.
-- **Grayscale Visual Hierarchy**: Hierarchy is achieved through contrast, typography weights, monospace accents, thin borders, and fill inversion.
-- **Light & Dark Modes**: Full support for light mode (default) and dark mode (inverted monochrome).
+[**Explore Documentation**](#-architecture--knowledge-topology) · [**Quickstart (60s)**](#-quickstart-in-60-seconds) · [**Feature Tour**](#-core-capabilities) · [**Database & Security**](#-database-schema--rls-security) · [**Report Issue**](https://github.com/Laxury-H/NEURON/issues)
 
----
-
-## 3. Technology Stack
-
-- **Framework**: Next.js 15 (App Router, Server Components & Client Components)
-- **Language**: TypeScript 5.8
-- **Styling**: Tailwind CSS, Shadcn UI architectural patterns
-- **Graph Visualization**: `@xyflow/react` (React Flow)
-- **Calendar**: `@fullcalendar/react` v6 (with `daygrid`, `timegrid`, `list`, `interaction`)
-- **Backend & Auth**: Supabase PostgreSQL, Row Level Security (RLS), Supabase Storage
-- **Validation & Date**: Zod, Date-fns
-- **Notifications**: Sonner (configured in strict monochrome theme)
+</div>
 
 ---
 
-## 4. Features & Module Breakdown
+## ✦ Why NEURON?
 
-### Module 1: Semester & Course Management
-- **Semesters**: Create, edit, rename, delete, and set active semester.
-- **Folder Sections**: Clean folder cards showing academic year, course counts, and expandable course lists.
-- **Courses**: Code (e.g. `EE4010`), course name, credits, lecturer, syllabus notes.
+Traditional learning management systems (LMS) and generic note-taking tools treat university academics as disjointed folders, flat bookmark lists, and chaotic messaging threads. Syllabi get lost in downloads, lecture files sit unorganized, and classmate contacts disappear across fragmented chat apps.
 
-### Module 2: Interactive Course Neural Graph
-- **Initial Load**: Starts cleanly with the 3 primary nodes (Course, Relationships group, Files group).
-- **Expansion**:
-  - Expanding **Relationships** retrieves connected classmates, lecturers, and teammates arranged radially.
-  - Expanding **Files** retrieves connected lecture notes, assignments, and past exams.
-- **Detailed Inspectors**:
-  - **Person Inspector**: Full contact information, nickname, email, phone, class, skills tags, knowledge topics, and course-specific context note. Allows unlinking from course or editing global profile.
-  - **Document Inspector**: File size, format, upload date, category, annotations, download/preview, and course unlinking without deleting original file.
-- **Drag & Persistence**: Moving nodes or adjusting zoom persists layout coordinates in the database (`course_graph_layouts`). Restores positions upon reopening.
+**NEURON** reimagines university life as a **living, spatial knowledge network**. Every course is a neural hub connecting study materials, classmate networks, and academic deadlines into a single visual brain.
 
-### Module 3: Semester Calendar
-- **Unified Aggregation**: Gathers all events from all courses in the active semester.
-- **Semester Selector**: Switch seamlessly between semesters.
-- **Views**: Month view, Week view, Agenda/List view.
-- **Event Categories**: `CLASS` (lecture), `EXAM`, `DEADLINE`, `PERSONAL`.
-- **Filters**: Filter by course or filter by event category using monochrome pattern chips.
-- **Recurring Schedules**: Supports weekly recurrence for regular university classes.
-
-### Module 4: Global Search (Cmd+K / Ctrl+K)
-- Universal instant search across semesters, courses, people, documents, and calendar events.
-- Distinct monochrome item indicators.
-- Direct navigation to relevant node, course, or calendar entry.
-
-### Module 5: Workspace Settings & Backup
-- Student profile preferences (display name, default timezone `Asia/Ho_Chi_Minh`).
-- Theme toggle (Light / Dark).
-- **JSON Backup & Recovery**: Export complete workspace state to JSON; import backups; reset to default academic seed fixture.
+| Dimension | Traditional Academic Setup | The NEURON Architecture |
+| :--- | :--- | :--- |
+| **Knowledge Topology** | Nested folders & scattered PDFs | **Interactive 2D Neural Graphs** powered by `@xyflow/react` |
+| **Academic Network** | Lost in Zalo, Telegram & Messenger | **People Graph** linked across multiple courses with skill & contact tags |
+| **Time & Deadlines** | Separate calendar apps & lost dates | **Unified Semester Calendar** aggregating classes, exams & assignment milestones |
+| **Storage Engine** | Locked into proprietary cloud silos | **Dual Engine**: Instant Local Persistence ⇄ Supabase Cloud Sync |
+| **Design Language** | Distracting colorful badges & clutter | **Strict Achromatic Monochrome** built on Swiss typography & zero-hue contrast |
+| **Search & Discovery** | Manual clicking through hierarchies | **Universal Spotlight Search** (`Cmd+K` / `Ctrl+K`) across all entities |
 
 ---
 
-## 5. Local Setup & Running
+## 🧠 Architecture & Knowledge Topology
+
+NEURON organizes university experience into a clean hierarchical mental model:
+
+```
+ACADEMIC TIMELINE (Workspace)
+ └── SEMESTERS (e.g. Fall 2026, Spring 2027)
+      ├── UNIFIED SEMESTER CALENDAR (FullCalendar v6: Lectures, Exams, Milestones)
+      └── COURSES (e.g. EE4010 - Power Systems, CS3100 - Algorithms)
+           └── COURSE NEURAL GRAPH
+                │
+                ├── [CENTRAL HUB] Course Node (Code, Title, Credits, Syllabus)
+                │
+                ├── [RELATIONSHIP CLUSTER] People & Network
+                │    ├── Lecturers & Teaching Assistants (Office hours, email, contacts)
+                │    ├── Project Teammates (Domain expertise, skills, notes)
+                │    └── Study Group Peers (Linked across multiple courses)
+                │
+                └── [MATERIAL CLUSTER] Academic Vault
+                     ├── Syllabus & Lecture Slides
+                     ├── Past Exams & Solutions
+                     └── Assignments & Project Files (with in-app modal preview)
+```
+
+### Neural Radial Layout & Interactive Flow
+
+```mermaid
+graph TD
+    classDef course fill:#171717,stroke:#ffffff,stroke-width:2px,color:#ffffff;
+    classDef group fill:#262626,stroke:#737373,stroke-width:1px,color:#ffffff;
+    classDef item fill:#000000,stroke:#525252,stroke-width:1px,color:#d4d4d4;
+
+    C["Course Hub: EE4010<br/>Power System Analysis"]:::course
+
+    RG["👥 Relationships Cluster<br/>(Classmates & Lecturers)"]:::group
+    FG["📁 Materials Vault<br/>(Documents & Notes)"]:::group
+
+    C --- RG
+    C --- FG
+
+    RG --> P1["Prof. Nguyen Van A<br/>• Lecturer • Power Grid"]:::item
+    RG --> P2["Le Thi B<br/>• Team Lead • Optimization"]:::item
+    RG --> P3["Tran Van C<br/>• Peer • Python / Matpower"]:::item
+
+    FG --> D1["Syllabus_2026.pdf<br/>• Official Course Outline"]:::item
+    FG --> D2["Midterm_Solutions_2025.pdf<br/>• Past Exam Archive"]:::item
+    FG --> D3["Power_Flow_Newton_Raphson.m<br/>• Simulation Source"]:::item
+```
+
+---
+
+## ⚡ Core Capabilities
+
+### 1. Spatial Course Neural Graph (`@xyflow/react`)
+- **Three-Tier Expansion**: Starts with a clean triad (Course Node, Relationships Group, Documents Group). Expand or collapse clusters on demand.
+- **Radial Auto-Layout**: Smooth mathematical distribution of surrounding nodes around the parent hub without node overlapping.
+- **Persistent Spatial State**: Drag positions, zoom scale, and canvas viewport coordinates are automatically debounced and saved (`course_graph_layouts`). Restored seamlessly when returning to the course.
+- **Node Context Inspectors**: Clicking any entity slides out a dedicated monochrome inspector panel for editing contacts, viewing file annotations, or adjusting course-specific context notes.
+
+### 2. Multi-Course Academic Network
+- **Global Person Library**: Register professors, lab instructors, and fellow students once; link them to multiple courses with course-specific context notes (e.g. *"Lab Partner for Project 1"* vs *"Lead TA for Midterm grading"*).
+- **Competency & Topic Tags**: Tag contacts with academic skills (e.g., `MATLAB`, `Latex`, `Verilog`, `Calculus III`) for instant study-group search.
+- **Direct Communication Links**: Quick access to Telegram, GitHub, Email, Phone, and university IDs.
+
+### 3. Unified Document Vault & In-App Preview
+- **Categorized Academic Materials**: Tag documents as `SYLLABUS`, `LECTURE`, `EXAM`, `ASSIGNMENT`, or `OTHER`.
+- **In-App Document Previewer**: Inspect lecture outlines, code snippets, and PDFs without navigating away from the knowledge canvas.
+- **Non-Destructive Course Unlinking**: Detach a textbook or reference sheet from an individual course without wiping it from your global library.
+
+### 4. Unified Semester Calendar (`FullCalendar v6`)
+- **Multi-Course Aggregation**: Consolidates schedules from all courses in the active semester into one master schedule.
+- **Recurring Class Schedules**: Native weekly recurrence engine for semester-long lecture timetables.
+- **Category Filter Chips**: Filter view by `CLASS`, `EXAM`, `DEADLINE`, or `PERSONAL` using monochrome hatched and bordered chips.
+- **Multiple Visualizations**: Seamlessly toggle between Month Grid, Time Grid (Week/Day), and Agenda List views.
+
+### 5. Universal Spotlight Search (`Cmd+K` / `Ctrl+K`)
+- Instant keyboard-driven global search indexing Semesters, Courses, People, Documents, and Calendar Milestones.
+- Typeahead navigation directly zooms into course graphs or opens calendar dates.
+
+### 6. Zero-Config Dual Storage Engine
+- **Local-First Ready**: Works out-of-the-box with browser `localStorage`. Pre-seeded with a comprehensive sample university semester (`Fall 2026`).
+- **Cloud-Native Scalability**: Supply Supabase credentials to automatically upgrade to cloud storage with PostgreSQL and Row-Level Security (RLS).
+- **JSON Vault Backup**: One-click full workspace export, schema-validated import, and instant restore.
+
+---
+
+## 🎨 The Strict Achromatic Palette System
+
+NEURON rejects colorful distraction to ensure complete cognitive clarity. The design system is 100% achromatic, adhering to Swiss typographic standards:
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        STRICT MONOCHROME SCALE                         │
+├───────────┬───────────┬───────────┬───────────┬───────────┬────────────┤
+│  #FFFFFF  │  #FAFAFA  │  #F5F5F5  │  #E5E5E5  │  #D4D4D4  │  #A3A3A3   │
+│  Canvas   │  Surface  │  Card BG  │  Subtle   │  Border   │  Muted Txt │
+├───────────┼───────────┼───────────┼───────────┼───────────┼────────────┤
+│  #737373  │  #525252  │  #404040  │  #262626  │  #171717  │  #000000   │
+│  Dimmed   │  Inactive │  Border-D │  Dark El  │  Neutral  │  Obsidian  │
+└───────────┴───────────┴───────────┴───────────┴───────────┴────────────┘
+```
+
+- **Zero Accents**: No blue links, no green checkmarks, no purple buttons.
+- **Hierarchy Through Texture**: Contrast is established through typography weight (`font-light` to `font-black`), border thicknesses, dot-grid canvas backgrounds, and inverted fills.
+- **First-Class Dark & Light Modes**: Pure obsidian dark mode and crisp gallery light mode.
+
+---
+
+## 🚀 Quickstart in 60 Seconds
 
 ### Prerequisites
-- Node.js 18+ (tested on Node v25.9.0)
-- `pnpm` (or `npm`)
+- [Node.js](https://nodejs.org/) v18.0.0 or later (tested on v20.x and v25.x)
+- [`pnpm`](https://pnpm.io/) v8+ (or `npm` / `yarn` / `bun`)
 
-### Installation
+### 1. Clone & Install
 
 ```bash
-# Clone the repository
+git clone https://github.com/Laxury-H/NEURON.git
 cd NEURON
-
-# Install dependencies
 pnpm install
 ```
 
-### Environment Configuration
-
-Copy the example environment configuration:
+### 2. Configure Environment (Optional)
 
 ```bash
 cp .env.example .env.local
 ```
 
-Contents of `.env.local`:
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
-NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET=academic-documents
-```
+> **Note**: If you don't configure Supabase, NEURON runs in **Persistent Local Mode** with pre-seeded demo data. No database setup is required to run the app immediately!
 
-> **Dual Storage Engine**: If Supabase credentials are not provided or set to empty, NEURON automatically operates in **Persistent Local Storage Mode** (using browser `localStorage`), pre-seeded with realistic university data. All CRUD actions, graph layouts, and calendar changes persist across page reloads. Once you provide Supabase credentials, it automatically connects to your PostgreSQL cloud instance.
-
-### Run Development Server
+### 3. Start Development Server
 
 ```bash
 pnpm dev
 ```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### Run Tests
+Navigate to [**http://localhost:3000**](http://localhost:3000) to open your academic workspace.
+
+---
+
+## 🧪 Testing & Verification Suite
+
+NEURON includes an automated verification suite covering data integrity, graph logic, and design constraints:
 
 ```bash
 pnpm test
 ```
-Runs the 10 automated unit and integration suites validating semester CRUD, neural graph structures, multi-course person integrity, document preservation, layout persistence, calendar aggregation, RLS policies, and strict monochrome compliance.
 
-### Run Production Build
+```text
+✔ 1. Semester Management — Real DataRepository CRUD & Ordering (2.5ms)
+✔ 2. Course Management — CRUD and Semester Scoping (0.8ms)
+✔ 3. Course Neural Graph — Three Primary Nodes Structure & Data Loader (0.4ms)
+✔ 4. Relationships — Multi-Course Linking, Context Notes & Contact Links (0.4ms)
+✔ 5. Documents — Upload, Course Linking, and Global Library Preservation (0.4ms)
+✔ 6. Graph Layout Persistence — Position & Viewport Restoration (0.7ms)
+✔ 7. Semester Calendar — Unified Aggregation across Categories (0.3ms)
+✔ 8. Calendar Course-Semester Integrity Rule Enforcement (0.2ms)
+✔ 9. Calendar Weekly Recurrence Rule Parsing and Integrity (0.2ms)
+✔ 10. Universal Global Search — Full Indexing across All Domains (12.7ms)
+✔ 11. Data Backup Export, Recovery & Schema Validation (0.6ms)
+✔ 12. Database Migration SQL & RLS Security Rules Verification (0.5ms)
+✔ 13. Strict Monochrome Palette Compliance (0.5ms)
+
+ℹ tests 13 | suites 0 | pass 13 | fail 0 | cancelled 0
+```
+
+To run a production build verification:
 
 ```bash
 pnpm build
-pnpm start
 ```
 
 ---
 
-## 6. Supabase Database & Storage Setup
+## 🗄️ Database Schema & RLS Security
 
-1. In your Supabase Dashboard, open the **SQL Editor**.
-2. Run the SQL migration located at:
-   `supabase/migrations/20261103000001_initial_schema.sql`
-3. (Optional) Run the seed fixture script at:
-   `supabase/seed.sql`
-4. Verify that the private storage bucket `academic-documents` is created with authenticated RLS policies.
+When connecting Supabase Cloud, run the migration script at [`supabase/migrations/20261103000001_initial_schema.sql`](supabase/migrations/20261103000001_initial_schema.sql).
+
+### Entity Relationship Diagram
+
+```mermaid
+erDiagram
+    PROFILES ||--o{ SEMESTERS : owns
+    SEMESTERS ||--o{ COURSES : contains
+    COURSES ||--o{ COURSE_PEOPLE : links
+    PEOPLE ||--o{ COURSE_PEOPLE : participates
+    COURSES ||--o{ COURSE_DOCUMENTS : binds
+    DOCUMENTS ||--o{ COURSE_DOCUMENTS : references
+    SEMESTERS ||--o{ EVENTS : scopes
+    COURSES ||--o{ EVENTS : associates
+    COURSES ||--o| COURSE_GRAPH_LAYOUTS : saves
+
+    PROFILES {
+        uuid id PK
+        text email
+        text full_name
+        text university
+        text timezone
+    }
+    SEMESTERS {
+        uuid id PK
+        uuid user_id FK
+        text name
+        text academic_year
+        boolean is_active
+    }
+    COURSES {
+        uuid id PK
+        uuid semester_id FK
+        text course_code
+        text course_name
+        int credits
+        text lecturer_name
+    }
+    PEOPLE {
+        uuid id PK
+        text full_name
+        text role
+        text email
+        text[] skills
+    }
+    DOCUMENTS {
+        uuid id PK
+        text file_name
+        text file_type
+        int file_size
+        text category
+    }
+```
+
+### Security & Row Level Security (RLS)
+- Every table has **RLS enabled** by default.
+- Every read, insert, update, and delete query is strictly bound to `auth.uid() = user_id`.
+- Supabase Storage bucket `academic-documents` is secured with path-based owner policies (`(storage.foldername(name))[1] = auth.uid()::text`).
 
 ---
 
-## 7. Required External Credentials (When using Supabase Cloud)
+## 📂 Project Organization
 
-- `NEXT_PUBLIC_SUPABASE_URL`: Supabase project URL (e.g. `https://xyz.supabase.co`)
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Public anonymous API key for client authentication and queries.
-- `SUPABASE_SERVICE_ROLE_KEY`: (Optional) Admin key for direct backend CLI migrations. Never exposed to browser.
+```text
+NEURON/
+├── src/
+│   ├── app/                               # Next.js 15 App Router
+│   │   ├── app/                           # Protected Academic Workspace
+│   │   │   ├── calendar/                  # Unified Semester Calendar View
+│   │   │   ├── semesters/                 # Semester & Course Hierarchy
+│   │   │   │   └── [semesterId]/
+│   │   │   │       └── courses/[courseId]/# Course Neural Graph Canvas
+│   │   │   └── settings/                  # User Profile, Backup & Restore
+│   │   ├── globals.css                    # Monochrome CSS Design Tokens
+│   │   └── layout.tsx                     # Root App Layout & Theme Provider
+│   ├── components/
+│   │   ├── calendar/                      # FullCalendar Event Panels & Recurrence
+│   │   ├── graph/                         # @xyflow/react Canvas, Nodes & Inspectors
+│   │   ├── navigation/                    # Monospaced Sidebar & Global Search
+│   │   └── ui/                            # Monochrome Primitive Components
+│   └── lib/
+│       ├── data/                          # Dual-Engine Repository (Local + Supabase)
+│       ├── types/                         # Strict TypeScript Entity Definitions
+│       └── supabase/                      # Cloud Client & Middleware Handlers
+├── supabase/
+│   ├── migrations/                        # PostgreSQL DDL & RLS Policies
+│   └── seed.sql                           # Academic Workspace Seed Fixture
+├── tests/
+│   └── neuron.test.mjs                    # End-to-End Automated Validation Suite
+├── package.json
+└── tsconfig.json
+```
+
+---
+
+## 🛠️ Tech Stack & Ecosystem
+
+| Layer | Technology | Key Highlights |
+| :--- | :--- | :--- |
+| **Framework** | [Next.js 15 (App Router)](https://nextjs.org/) | Server Components, Turbopack, Streaming SSR |
+| **Language** | [TypeScript 5.8](https://www.typescriptlang.org/) | 100% strict type definitions and schemas |
+| **Graph Engine** | [@xyflow/react 12](https://reactflow.dev/) | Radial nodes, smooth bezier curves, pan & zoom |
+| **Calendar Engine** | [FullCalendar v6](https://fullcalendar.io/) | DayGrid, TimeGrid, recurrence rule parser |
+| **Styling** | [Tailwind CSS 3.4](https://tailwindcss.com/) | Bespoke achromatic color token system |
+| **UI Primitives** | [Radix UI](https://www.radix-ui.com/) | Accessible dialogs, dropdowns, and sheet inspectors |
+| **Backend / DB** | [Supabase](https://supabase.com/) | PostgreSQL 15, RLS policies, Storage buckets |
+| **Icons** | [Lucide React](https://lucide.dev/) | Crisp, optical-grid iconography |
+
+---
+
+## 🤝 Contributing
+
+Contributions to NEURON are welcome! Whether it is extending graph layout algorithms, adding export formats (BibTeX, Notion, Obsidian), or improving accessibility:
+
+1. **Fork** the repository
+2. **Create** your feature branch (`git checkout -b feat/amazing-feature`)
+3. **Commit** your changes following conventional commits (`git commit -m 'feat: add obsidian export'`)
+4. **Run** the test suite to ensure all 13 checks pass (`pnpm test`)
+5. **Push** to the branch (`git push origin feat/amazing-feature`)
+6. **Open** a Pull Request
+
+---
+
+## 📄 License
+
+Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for more information.
+
+---
+
+<div align="center">
+  <sub>Built with mathematical precision for university academics. Designed by <a href="https://github.com/Laxury-H">Laxury-H</a>.</sub>
+</div>
