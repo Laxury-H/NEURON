@@ -215,6 +215,12 @@
   color: #FFFFFF !important;
   font-weight: 600 !important;
 }
+.fc-daygrid-event-dot {
+  border-color: #171717 !important;
+}
+.dark .fc-daygrid-event-dot {
+  border-color: #FAFAFA !important;
+}
 .fc-event.fc-event-personal {
   background-color: #F5F5F5 !important;
   border: 1px dashed #737373 !important;

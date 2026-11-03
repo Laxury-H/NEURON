@@ -40,7 +40,7 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
   const [expandedSemesters, setExpandedSemesters] = useState<Record<string, boolean>>({});
   const [searchOpen, setSearchOpen] = useState(false);
 
-  const fetchNavData = async () => {
+  const fetchNavData = React.useCallback(async () => {
     try {
       const data = await DataRepository.getSemesters();
       setSemesters(data);
@@ -55,7 +55,7 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
     } catch (err) {
       console.error("Failed to load sidebar navigation data", err);
     }
-  };
+  }, [pathname]);
 
   useEffect(() => {
     fetchNavData();
@@ -63,7 +63,7 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
     const handleDataChange = () => fetchNavData();
     window.addEventListener("neuron_data_changed", handleDataChange);
     return () => window.removeEventListener("neuron_data_changed", handleDataChange);
-  }, [pathname]);
+  }, [fetchNavData]);
 
   // Keyboard shortcut Cmd+K / Ctrl+K
   useEffect(() => {

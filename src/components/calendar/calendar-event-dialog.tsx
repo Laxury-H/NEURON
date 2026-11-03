@@ -120,9 +120,9 @@ export function CalendarEventDialog({
         ? `${endDate || startDate}T23:59:59+07:00`
         : `${endDate || startDate}T${endTime}:00+07:00`;
 
-      const dayOfWeekStr = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"][
-        new Date(startDate).getDay()
-      ];
+      const [year, month, day] = startDate.split("-").map(Number);
+      const localDate = new Date(year, month - 1, day);
+      const dayOfWeekStr = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"][localDate.getDay()];
       const recurrenceRule = repeatsWeekly ? `FREQ=WEEKLY;BYDAY=${dayOfWeekStr}` : null;
 
       await onSave({

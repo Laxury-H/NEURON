@@ -18,7 +18,6 @@ import {
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { toast } from "sonner";
 import {
-  Settings as SettingsIcon,
   Moon,
   Sun,
   Download,
@@ -26,7 +25,6 @@ import {
   RotateCcw,
   Database,
   ShieldCheck,
-  Globe,
   User,
 } from "lucide-react";
 

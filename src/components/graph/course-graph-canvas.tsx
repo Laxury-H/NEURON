@@ -5,17 +5,17 @@ import {
   ReactFlow,
   Background,
   Controls,
-  MiniMap,
   useNodesState,
   useEdgesState,
   Node,
   Edge,
   ReactFlowProvider,
   useReactFlow,
+  OnNodeDrag,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import { Course, Person, DocumentItem, CourseGraphLayout, RelationshipType, DocumentCategory } from "@/types/database";
+import { Course, Person, DocumentItem, CourseGraphLayout, RelationshipType } from "@/types/database";
 import { DataRepository } from "@/lib/data/repository";
 import { CourseNode } from "./nodes/course-node";
 import { RelationshipGroupNode } from "./nodes/relationship-group-node";
@@ -39,7 +39,6 @@ import {
   UserPlus,
   FileUp,
   Search,
-  Filter,
 } from "lucide-react";
 
 interface CourseGraphCanvasProps {
@@ -56,7 +55,7 @@ const nodeTypes = {
 };
 
 function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
-  const { fitView, setViewport } = useReactFlow();
+  const { fitView, getViewport, setViewport } = useReactFlow();
 
   const [course, setCourse] = useState<Course | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
@@ -96,11 +95,16 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         setAllPeople(data.allPeople);
         setAllDocuments(data.allDocuments);
         setSavedLayout(data.layout);
+        if (data.layout?.viewport) {
+          setTimeout(() => {
+            setViewport(data.layout!.viewport, { duration: 300 });
+          }, 80);
+        }
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to load course graph data");
     }
-  }, [courseId]);
+  }, [courseId, setViewport]);
 
   useEffect(() => {
     loadData();
@@ -293,8 +297,8 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
   ]);
 
   // Node Drag Stop -> Save Positions
-  const onNodeDragStop = useCallback(
-    (_: MouseEvent | TouchEvent, node: Node) => {
+  const onNodeDragStop: OnNodeDrag = useCallback(
+    (_, node) => {
       setNodes((currentNodes) => {
         const updatedPositions: Record<string, { x: number; y: number }> = {
           ...(savedLayout?.positions || {}),
@@ -302,8 +306,11 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         currentNodes.forEach((n) => {
           updatedPositions[n.id] = { x: n.position.x, y: n.position.y };
         });
+        if (node) {
+          updatedPositions[node.id] = { x: node.position.x, y: node.position.y };
+        }
 
-        const currentViewport = savedLayout?.viewport || { x: 0, y: 0, zoom: 1 };
+        const currentViewport = getViewport();
         DataRepository.saveCourseGraphLayout(courseId, updatedPositions, currentViewport);
 
         setSavedLayout((prev) => ({
@@ -317,7 +324,24 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         return currentNodes;
       });
     },
-    [courseId, savedLayout, setNodes]
+    [courseId, savedLayout, getViewport, setNodes]
+  );
+
+  // Pan / Zoom change -> Save Viewport
+  const onMoveEnd = useCallback(
+    (_: unknown, viewport: { x: number; y: number; zoom: number }) => {
+      if (!course) return;
+      const positions = savedLayout?.positions || {};
+      DataRepository.saveCourseGraphLayout(courseId, positions, viewport);
+      setSavedLayout((prev) => ({
+        course_id: courseId,
+        user_id: prev?.user_id || "",
+        positions: prev?.positions || {},
+        viewport,
+        updated_at: new Date().toISOString(),
+      }));
+    },
+    [courseId, course, savedLayout]
   );
 
   // Handle Node Click
@@ -620,6 +644,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeDragStop={onNodeDragStop}
+        onMoveEnd={onMoveEnd}
         onNodeClick={onNodeClick}
         nodeTypes={nodeTypes}
         fitView

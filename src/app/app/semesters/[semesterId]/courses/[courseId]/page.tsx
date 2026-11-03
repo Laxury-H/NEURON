@@ -8,7 +8,7 @@ import { DataRepository } from "@/lib/data/repository";
 import { CourseGraphCanvas } from "@/components/graph/course-graph-canvas";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, Network, ChevronRight } from "lucide-react";
+import { ArrowLeft, Calendar, ChevronRight } from "lucide-react";
 
 export default function CourseGraphPage() {
   const params = useParams();

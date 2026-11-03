@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -12,7 +12,6 @@ import { DataRepository } from "@/lib/data/repository";
 import { CalendarEventDialog } from "./calendar-event-dialog";
 import { EventDetailPanel } from "./event-detail-panel";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -23,12 +22,6 @@ import {
 import {
   Plus,
   Calendar as CalendarIcon,
-  Filter,
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  ListFilter,
-  Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -90,9 +83,15 @@ export function SemesterCalendar({
     initSemesters();
   }, [initialSemesterId]);
 
+  // Current selected semester object
+  const currentSemester = useMemo(() => {
+    return semesters.find((s) => s.id === selectedSemesterId);
+  }, [semesters, selectedSemesterId]);
+
   // Load Courses and Events for selected semester
-  const loadSemesterData = async () => {
+  const loadSemesterData = useCallback(async () => {
     if (!selectedSemesterId) return;
+    setLoading(true);
     try {
       const [crs, evs] = await Promise.all([
         DataRepository.getCourses(selectedSemesterId),
@@ -110,14 +109,16 @@ export function SemesterCalendar({
       }
     } catch {
       toast.error("Failed to load semester events");
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [selectedSemesterId, initialCourseId, initialEventId]);
 
   useEffect(() => {
     if (selectedSemesterId) {
       loadSemesterData();
     }
-  }, [selectedSemesterId, initialCourseId, initialEventId]);
+  }, [selectedSemesterId, loadSemesterData]);
 
   // Event handlers
   const handleSaveEvent = async (data: any) => {
@@ -171,7 +172,7 @@ export function SemesterCalendar({
     });
   }, [events, selectedCourseFilter, activeTypeFilters]);
 
-  // Map to FullCalendar event format
+  // Map to FullCalendar event format with weekly recurrence expansion
   const calendarEvents = useMemo(() => {
     return filteredEvents.map((ev) => {
       let className = "fc-event-default";
@@ -181,6 +182,64 @@ export function SemesterCalendar({
       if (ev.event_type === "PERSONAL") className = "fc-event-personal";
 
       const titlePrefix = ev.course?.course_code ? `[${ev.course.course_code}] ` : "";
+
+      // Check for weekly recurrence
+      if (ev.recurrence_rule && ev.recurrence_rule.includes("FREQ=WEEKLY")) {
+        const byDayMap: Record<string, number> = {
+          SU: 0,
+          MO: 1,
+          TU: 2,
+          WE: 3,
+          TH: 4,
+          FR: 5,
+          SA: 6,
+        };
+        const byDayMatch = ev.recurrence_rule.match(/BYDAY=([A-Z]+)/);
+        const startDateObj = new Date(ev.start_at);
+        const endDateObj = new Date(ev.end_at);
+
+        const dayNumber =
+          byDayMatch && byDayMap[byDayMatch[1]] !== undefined
+            ? byDayMap[byDayMatch[1]]
+            : startDateObj.getDay();
+
+        // Format times in Asia/Ho_Chi_Minh
+        const startTimeStr = startDateObj.toLocaleTimeString("en-GB", {
+          timeZone: "Asia/Ho_Chi_Minh",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        });
+        const endTimeStr = endDateObj.toLocaleTimeString("en-GB", {
+          timeZone: "Asia/Ho_Chi_Minh",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        });
+
+        const startRecurStr = startDateObj.toLocaleDateString("en-CA", {
+          timeZone: "Asia/Ho_Chi_Minh",
+        });
+        const endRecurStr = currentSemester?.end_date || "2027-12-31";
+
+        return {
+          id: ev.id,
+          groupId: ev.id,
+          title: `${titlePrefix}${ev.title}`,
+          daysOfWeek: [dayNumber],
+          startTime: ev.all_day ? undefined : startTimeStr,
+          endTime: ev.all_day ? undefined : endTimeStr,
+          startRecur: startRecurStr,
+          endRecur: endRecurStr,
+          allDay: ev.all_day,
+          className,
+          extendedProps: {
+            originalEvent: ev,
+          },
+        };
+      }
 
       return {
         id: ev.id,
@@ -194,7 +253,7 @@ export function SemesterCalendar({
         },
       };
     });
-  }, [filteredEvents]);
+  }, [filteredEvents, currentSemester]);
 
   // Switch Calendar View
   const handleViewChange = (view: "dayGridMonth" | "timeGridWeek" | "listMonth") => {
@@ -249,6 +308,12 @@ export function SemesterCalendar({
               </SelectContent>
             </Select>
           </div>
+
+          {loading && (
+            <span className="text-[10px] font-mono text-muted-foreground animate-pulse hidden sm:inline">
+              Updating...
+            </span>
+          )}
 
           {/* View switcher buttons */}
           <div className="flex items-center rounded-md border border-border p-0.5 bg-muted">

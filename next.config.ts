@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  devIndicators: false,
   eslint: {
     // We want to pass eslint checks during build
     ignoreDuringBuilds: false,

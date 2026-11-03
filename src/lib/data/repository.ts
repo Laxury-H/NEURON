@@ -1,4 +1,4 @@
-import {
+import type {
   Semester,
   Course,
   Person,
@@ -11,7 +11,7 @@ import {
   RelationshipType,
   DocumentCategory,
   EventType,
-} from '@/types/database';
+} from '../../types/database.ts';
 import {
   INITIAL_USER_ID,
   INITIAL_SEMESTERS,
@@ -22,8 +22,8 @@ import {
   INITIAL_COURSE_DOCUMENTS,
   INITIAL_EVENTS,
   INITIAL_GRAPH_LAYOUTS,
-} from './mock-data';
-import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
+} from './mock-data.ts';
+import { createClient, isSupabaseConfigured } from '../supabase/client.ts';
 
 const STORAGE_KEY = 'neuron_store_v1';
 
@@ -1075,6 +1075,15 @@ export const DataRepository = {
     reminder_offsets_minutes?: number[];
   }): Promise<CalendarEvent> {
     const store = loadStore();
+
+    // Verify course-semester integrity
+    if (params.course_id) {
+      const course = store.courses.find((c) => c.id === params.course_id);
+      if (!course || course.semester_id !== params.semester_id) {
+        throw new Error('Course does not belong to the selected semester');
+      }
+    }
+
     const newId = `ev-${Date.now()}`;
     const newEvent: CalendarEvent = {
       id: newId,
@@ -1202,15 +1211,28 @@ export const DataRepository = {
       }
     }
 
-    // Search People
+    // Search People (including skills, knowledge topics, context notes, and contact links)
     for (const p of store.people) {
+      const courseLinks = store.course_people.filter((cp) => cp.person_id === p.id);
+      const matchesTopic = courseLinks.some((cp) =>
+        cp.knowledge_topics?.some((kt) => kt.toLowerCase().includes(q)) ||
+        (cp.context_note && cp.context_note.toLowerCase().includes(q))
+      );
+      const matchesContact = Object.values(p.contact_links || {}).some(
+        (val) => typeof val === 'string' && val.toLowerCase().includes(q)
+      );
+
       if (
         p.full_name.toLowerCase().includes(q) ||
         (p.nickname && p.nickname.toLowerCase().includes(q)) ||
         (p.email && p.email.toLowerCase().includes(q)) ||
+        (p.phone && p.phone.toLowerCase().includes(q)) ||
+        (p.class_name && p.class_name.toLowerCase().includes(q)) ||
         (p.major && p.major.toLowerCase().includes(q)) ||
         p.skills.some((sk) => sk.toLowerCase().includes(q)) ||
-        (p.notes && p.notes.toLowerCase().includes(q))
+        (p.notes && p.notes.toLowerCase().includes(q)) ||
+        matchesTopic ||
+        matchesContact
       ) {
         // Link to first associated course if any, or general contacts
         const firstLink = store.course_people.find((cp) => cp.person_id === p.id);

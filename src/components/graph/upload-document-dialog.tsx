@@ -10,7 +10,6 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -21,14 +20,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Upload, FileUp, Link as LinkIcon, FileText } from "lucide-react";
+import { Upload, FileUp, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 
 interface UploadDocumentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   availableDocuments: DocumentItem[];
-  courseId: string;
+  courseId?: string;
   onUploadDocument: (data: {
     original_file_name: string;
     category: DocumentCategory;
@@ -44,7 +43,6 @@ export function UploadDocumentDialog({
   open,
   onOpenChange,
   availableDocuments,
-  courseId,
   onUploadDocument,
   onLinkExistingDocument,
 }: UploadDocumentDialogProps) {

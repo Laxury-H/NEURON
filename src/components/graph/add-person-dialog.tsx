@@ -34,6 +34,7 @@ interface AddPersonDialogProps {
       nickname?: string | null;
       email?: string | null;
       phone?: string | null;
+      contact_links?: Record<string, string>;
       class_name?: string | null;
       major?: string | null;
       skills?: string[];
@@ -59,7 +60,6 @@ export function AddPersonDialog({
   open,
   onOpenChange,
   availablePeople,
-  courseId,
   onAddNewPerson,
   onLinkExistingPerson,
 }: AddPersonDialogProps) {
@@ -70,6 +70,8 @@ export function AddPersonDialog({
   const [nickname, setNickname] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [facebook, setFacebook] = useState("");
+  const [zalo, setZalo] = useState("");
   const [classNameVal, setClassNameVal] = useState("");
   const [major, setMajor] = useState("");
   const [skills, setSkills] = useState("");
@@ -90,6 +92,8 @@ export function AddPersonDialog({
     setNickname("");
     setEmail("");
     setPhone("");
+    setFacebook("");
+    setZalo("");
     setClassNameVal("");
     setMajor("");
     setSkills("");
@@ -115,12 +119,17 @@ export function AddPersonDialog({
         .map((t) => t.trim())
         .filter(Boolean);
 
+      const contact_links: Record<string, string> = {};
+      if (facebook.trim()) contact_links.facebook = facebook.trim();
+      if (zalo.trim()) contact_links.zalo = zalo.trim();
+
       await onAddNewPerson({
         personData: {
           full_name: fullName.trim(),
           nickname: nickname.trim() || null,
           email: email.trim() || null,
           phone: phone.trim() || null,
+          contact_links,
           class_name: classNameVal.trim() || null,
           major: major.trim() || null,
           skills: skillsArr,
@@ -235,6 +244,25 @@ export function AddPersonDialog({
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label>Facebook URL/ID</Label>
+                  <Input
+                    value={facebook}
+                    onChange={(e) => setFacebook(e.target.value)}
+                    placeholder="fb.com/user"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Zalo Contact</Label>
+                  <Input
+                    value={zalo}
+                    onChange={(e) => setZalo(e.target.value)}
+                    placeholder="zalo_id or phone"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-1">
                 <Label>Major / Department</Label>
                 <Input
@@ -291,7 +319,8 @@ export function AddPersonDialog({
 
                 <div className="space-y-1">
                   <Label>Context Note</Label>
-                  <Input
+                  <Textarea
+                    rows={2}
                     value={contextNote}
                     onChange={(e) => setContextNote(e.target.value)}
                     placeholder="e.g. Lab partner for assignment 2"

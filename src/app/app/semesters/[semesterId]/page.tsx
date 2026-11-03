@@ -51,7 +51,7 @@ export default function SemesterDetailPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [courseToDelete, setCourseToDelete] = useState<Course | null>(null);
 
-  const loadData = async () => {
+  const loadData = React.useCallback(async () => {
     setLoading(true);
     try {
       const sem = await DataRepository.getSemester(semesterId);
@@ -68,13 +68,13 @@ export default function SemesterDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [semesterId, router]);
 
   useEffect(() => {
     if (semesterId) {
       loadData();
     }
-  }, [semesterId]);
+  }, [semesterId, loadData]);
 
   const notifyChange = () => {
     if (typeof window !== "undefined") {

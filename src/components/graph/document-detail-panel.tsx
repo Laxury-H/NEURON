@@ -25,14 +25,15 @@ import {
   Unlink,
   Check,
   Edit2,
-  ExternalLink,
+  Eye,
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
+import { DocumentPreviewDialog } from "./document-preview-dialog";
 import { toast } from "sonner";
 
 interface DocumentDetailPanelProps {
   document: DocumentItem | null;
-  courseId: string;
+  courseId?: string;
   onClose: () => void;
   onUpdateDocument: (
     documentId: string,
@@ -44,7 +45,6 @@ interface DocumentDetailPanelProps {
 
 export function DocumentDetailPanel({
   document,
-  courseId,
   onClose,
   onUpdateDocument,
   onUnlinkFromCourse,
@@ -55,6 +55,7 @@ export function DocumentDetailPanel({
   const [category, setCategory] = useState<DocumentCategory>("Notes");
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const [confirmUnlinkOpen, setConfirmUnlinkOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -213,15 +214,24 @@ export function DocumentDetailPanel({
         ) : (
           <div className="space-y-5">
             {/* Quick Actions */}
-            <div className="flex items-center space-x-2">
+            <div className="grid grid-cols-2 gap-2">
               <Button
                 variant="default"
+                size="sm"
+                className="w-full text-xs"
+                onClick={() => setPreviewOpen(true)}
+              >
+                <Eye className="h-3.5 w-3.5 mr-1.5" />
+                Preview File
+              </Button>
+              <Button
+                variant="outline"
                 size="sm"
                 className="w-full text-xs"
                 onClick={handleDownload}
               >
                 <Download className="h-3.5 w-3.5 mr-1.5" />
-                Download File
+                Download
               </Button>
             </div>
 
@@ -347,6 +357,13 @@ export function DocumentDetailPanel({
         description={`Are you sure you want to permanently delete "${document.original_file_name}"? It will be removed from all associated courses and storage.`}
         confirmLabel="Delete Permanently"
         onConfirm={() => onDeleteDocument(document.id)}
+      />
+
+      <DocumentPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        document={document}
+        onDownload={handleDownload}
       />
     </div>
   );

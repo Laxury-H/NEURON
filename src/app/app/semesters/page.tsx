@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Semester, Course } from "@/types/database";
 import { DataRepository } from "@/lib/data/repository";
 import { Button } from "@/components/ui/button";
@@ -18,7 +17,6 @@ import {
   MoreVertical,
   Edit2,
   Trash2,
-  ChevronRight,
   BookOpen,
   ArrowRight,
   CheckCircle2,
@@ -32,7 +30,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export default function SemestersPage() {
-  const router = useRouter();
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -51,7 +48,7 @@ export default function SemestersPage() {
     try {
       const data = await DataRepository.getSemesters();
       setSemesters(data);
-    } catch (err) {
+    } catch {
       toast.error("Failed to load semesters");
     } finally {
       setLoading(false);

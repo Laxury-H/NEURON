@@ -32,7 +32,7 @@ import { ConfirmDialog } from "@/components/common/confirm-dialog";
 
 interface PersonDetailPanelProps {
   person: Person | null;
-  courseId: string;
+  courseId?: string;
   onClose: () => void;
   onUpdatePerson: (personId: string, data: any) => Promise<void>;
   onUpdateRelationship: (
@@ -47,7 +47,6 @@ interface PersonDetailPanelProps {
 
 export function PersonDetailPanel({
   person,
-  courseId,
   onClose,
   onUpdatePerson,
   onUpdateRelationship,
@@ -59,6 +58,10 @@ export function PersonDetailPanel({
   const [nickname, setNickname] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [facebook, setFacebook] = useState("");
+  const [zalo, setZalo] = useState("");
+  const [linkedin, setLinkedin] = useState("");
+  const [office, setOffice] = useState("");
   const [classNameVal, setClassNameVal] = useState("");
   const [major, setMajor] = useState("");
   const [skillsInput, setSkillsInput] = useState("");
@@ -79,6 +82,11 @@ export function PersonDetailPanel({
       setNickname(person.nickname || "");
       setEmail(person.email || "");
       setPhone(person.phone || "");
+      const links = person.contact_links || {};
+      setFacebook(links.facebook || "");
+      setZalo(links.zalo || "");
+      setLinkedin(links.linkedin || "");
+      setOffice(links.office || "");
       setClassNameVal(person.class_name || "");
       setMajor(person.major || "");
       setSkillsInput(person.skills.join(", "));
@@ -108,11 +116,18 @@ export function PersonDetailPanel({
         .map((t) => t.trim())
         .filter(Boolean);
 
+      const contact_links: Record<string, string> = {};
+      if (facebook.trim()) contact_links.facebook = facebook.trim();
+      if (zalo.trim()) contact_links.zalo = zalo.trim();
+      if (linkedin.trim()) contact_links.linkedin = linkedin.trim();
+      if (office.trim()) contact_links.office = office.trim();
+
       await onUpdatePerson(person.id, {
         full_name: fullName.trim(),
         nickname: nickname.trim() || null,
         email: email.trim() || null,
         phone: phone.trim() || null,
+        contact_links,
         class_name: classNameVal.trim() || null,
         major: major.trim() || null,
         skills: skillsArray,
@@ -215,6 +230,44 @@ export function PersonDetailPanel({
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label>Facebook URL/ID</Label>
+                <Input
+                  value={facebook}
+                  onChange={(e) => setFacebook(e.target.value)}
+                  placeholder="fb.com/user"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Zalo Contact</Label>
+                <Input
+                  value={zalo}
+                  onChange={(e) => setZalo(e.target.value)}
+                  placeholder="zalo_id or phone"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label>LinkedIn</Label>
+                <Input
+                  value={linkedin}
+                  onChange={(e) => setLinkedin(e.target.value)}
+                  placeholder="in/user"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Office / Location</Label>
+                <Input
+                  value={office}
+                  onChange={(e) => setOffice(e.target.value)}
+                  placeholder="Room 402, Bldg C"
+                />
+              </div>
             </div>
 
             <div className="space-y-1">
@@ -375,6 +428,29 @@ export function PersonDetailPanel({
                     </span>
                   </div>
                 )}
+
+                {person.contact_links && Object.keys(person.contact_links).length > 0 && (
+                  <div className="pt-2 border-t border-border/50 space-y-1.5">
+                    <span className="text-[10px] font-mono uppercase text-muted-foreground block font-semibold">
+                      Online & Contact Links
+                    </span>
+                    {Object.entries(person.contact_links).map(([platform, handle]) => (
+                      <div key={platform} className="flex items-center space-x-2 text-muted-foreground text-xs">
+                        <LinkIcon className="h-3 w-3 shrink-0 text-foreground" />
+                        <span className="capitalize font-mono text-[11px] text-foreground">{platform}:</span>
+                        <span className="truncate">{handle}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="pt-1 text-[10px] font-mono text-muted-foreground border-t border-border/30">
+                  Added to contacts: {new Date(person.created_at).toLocaleDateString(undefined, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </div>
               </div>
             </div>
 
