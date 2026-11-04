@@ -16,7 +16,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import { Course, Person, DocumentItem, CourseGraphLayout, RelationshipType } from "@/types/database";
+import { Course, Person, DocumentItem, DocumentCategory, CourseGraphLayout, RelationshipType } from "@/types/database";
 import { DataRepository } from "@/lib/data/repository";
 import { CourseNode } from "./nodes/course-node";
 import { RelationshipGroupNode } from "./nodes/relationship-group-node";
@@ -30,6 +30,11 @@ import { DocumentDetailPanel } from "./document-detail-panel";
 import { AddPersonDialog } from "./add-person-dialog";
 import { UploadDocumentDialog } from "./upload-document-dialog";
 import { CourseDialog } from "@/components/courses/course-dialog";
+import { DocumentContextMenu } from "./document-context-menu";
+import { RenameDocumentDialog } from "./rename-document-dialog";
+import { MoveDocumentDialog } from "./move-document-dialog";
+import { AdvancedDocumentDialog } from "./advanced-document-dialog";
+import { DocumentPreviewDialog } from "./document-preview-dialog";
 import {
   Dialog,
   DialogContent,
@@ -91,6 +96,21 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
   const [addPersonOpen, setAddPersonOpen] = useState(false);
   const [uploadDocOpen, setUploadDocOpen] = useState(false);
   const [editCourseOpen, setEditCourseOpen] = useState(false);
+
+  // Document Context Menu & Dialogs State
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    document: DocumentItem;
+  } | null>(null);
+  const [docForRename, setDocForRename] = useState<DocumentItem | null>(null);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [docForMove, setDocForMove] = useState<DocumentItem | null>(null);
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+  const [docForAdvanced, setDocForAdvanced] = useState<DocumentItem | null>(null);
+  const [advancedDialogOpen, setAdvancedDialogOpen] = useState(false);
+  const [docForPreview, setDocForPreview] = useState<DocumentItem | null>(null);
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
 
   // Search filter inside canvas
   const [graphSearchQuery, setGraphSearchQuery] = useState("");
@@ -279,6 +299,19 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
             category: d.category,
             mimeType: d.mime_type,
             fileSize: d.file_size,
+            onPreviewClick: () => {
+              setDocForPreview(d);
+              setPreviewDialogOpen(true);
+            },
+            onContextMenuTrigger: (e: React.MouseEvent) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setContextMenu({
+                x: e.clientX,
+                y: e.clientY,
+                document: d,
+              });
+            },
           },
           selected: selectedDocument?.id === d.id,
           style: { opacity: matchesSearch ? 1 : 0.3 },
@@ -390,6 +423,26 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
     [people, documents]
   );
 
+  // Handle Node Context Menu (Right Click)
+  const onNodeContextMenu = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      if (node.type === "documentNode" || node.id.startsWith("doc-")) {
+        event.preventDefault();
+        event.stopPropagation();
+        const docId = (node.data as any)?.id || node.id.replace("doc-", "");
+        const doc = documents.find((d) => d.id === docId);
+        if (doc) {
+          setContextMenu({
+            x: event.clientX,
+            y: event.clientY,
+            document: doc,
+          });
+        }
+      }
+    },
+    [documents]
+  );
+
   // Reset Layout to balanced structure
   const handleResetLayout = useCallback(() => {
     const defaultPositions: Record<string, { x: number; y: number }> = {
@@ -447,16 +500,25 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
       } else if (e.key === "?") {
         e.preventDefault();
         setShortcutsOpen((prev) => !prev);
+      } else if (e.key === "F2" && selectedDocument) {
+        e.preventDefault();
+        setDocForRename(selectedDocument);
+        setRenameDialogOpen(true);
+      } else if (e.key === " " && selectedDocument) {
+        e.preventDefault();
+        setDocForPreview(selectedDocument);
+        setPreviewDialogOpen(true);
       } else if (e.key === "Escape") {
         setSelectedCourse(false);
         setSelectedPerson(null);
         setSelectedDocument(null);
         setShortcutsOpen(false);
+        setContextMenu(null);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [fitView, handleResetLayout, expandRelationships, expandFiles]);
+  }, [fitView, handleResetLayout, expandRelationships, expandFiles, selectedDocument]);
 
   // Node CRUD & Relationship Handlers
   const handleAddNewPerson = async (data: any) => {
@@ -605,6 +667,94 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
     }
   };
 
+  const handleRenameSubmit = async (newName: string) => {
+    if (!docForRename) return;
+    try {
+      await handleUpdateDocument(docForRename.id, {
+        original_file_name: newName,
+        category: docForRename.category,
+        description: docForRename.description,
+      });
+      toast.success("Document renamed");
+    } catch {
+      toast.error("Failed to rename document");
+    }
+  };
+
+  const handleMoveSubmit = async (targetCourseId: string) => {
+    if (!docForMove) return;
+    try {
+      await DataRepository.moveDocument(docForMove.id, courseId, targetCourseId);
+      toast.success("Document moved to destination course");
+      await loadData();
+      setSelectedDocument(null);
+    } catch {
+      toast.error("Failed to move document");
+    }
+  };
+
+  const handleLinkAlsoSubmit = async (targetCourseId: string) => {
+    if (!docForMove) return;
+    try {
+      await DataRepository.linkDocumentToCourse(targetCourseId, docForMove.id);
+      toast.success("Document linked to additional course");
+      await loadData();
+    } catch {
+      toast.error("Failed to link document");
+    }
+  };
+
+  const handleQuickChangeCategory = async (doc: DocumentItem, newCategory: DocumentCategory) => {
+    try {
+      await handleUpdateDocument(doc.id, {
+        original_file_name: doc.original_file_name,
+        category: newCategory,
+        description: doc.description,
+      });
+      toast.success(`Category updated to ${newCategory}`);
+    } catch {
+      toast.error("Failed to update category");
+    }
+  };
+
+  const handleDownloadDoc = (doc: DocumentItem) => {
+    if (doc.download_url) {
+      const a = window.document.createElement("a");
+      a.href = doc.download_url;
+      a.download = doc.original_file_name;
+      window.document.body.appendChild(a);
+      a.click();
+      window.document.body.removeChild(a);
+      toast.success(`Downloading ${doc.original_file_name}`);
+    } else {
+      const dummyContent = `NEURON Document Export\n\nTitle: ${doc.original_file_name}\nCategory: ${doc.category}\nUploaded: ${doc.uploaded_at}\nDescription: ${doc.description || "N/A"}`;
+      const blob = new Blob([dummyContent], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = window.document.createElement("a");
+      a.href = url;
+      a.download = doc.original_file_name.endsWith(".txt")
+        ? doc.original_file_name
+        : `${doc.original_file_name}.txt`;
+      window.document.body.appendChild(a);
+      a.click();
+      window.document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${doc.original_file_name}`);
+    }
+  };
+
+  const handleAdvancedSave = async (
+    docId: string,
+    data: { original_file_name: string; category: DocumentCategory; description?: string | null }
+  ) => {
+    try {
+      await handleUpdateDocument(docId, data);
+      toast.success("Advanced settings saved");
+    } catch {
+      toast.error("Failed to save advanced settings");
+    }
+  };
+
   const handleUpdateCourse = async (data: any) => {
     try {
       await DataRepository.updateCourse(courseId, data);
@@ -742,6 +892,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         onNodeDragStop={onNodeDragStop}
         onMoveEnd={onMoveEnd}
         onNodeClick={onNodeClick}
+        onNodeContextMenu={onNodeContextMenu}
         nodeTypes={nodeTypes}
         fitView
         minZoom={0.2}
@@ -795,6 +946,10 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
           onUpdateDocument={handleUpdateDocument}
           onUnlinkFromCourse={handleUnlinkDocument}
           onDeleteDocument={handleDeleteDocument}
+          onMoveDocument={(doc) => {
+            setDocForMove(doc);
+            setMoveDialogOpen(true);
+          }}
         />
       )}
 
@@ -870,6 +1025,14 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
               <kbd className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded border border-border">M</kbd>
             </div>
             <div className="flex items-center justify-between py-1 border-b border-border/50">
+              <span className="text-muted-foreground">Rename Selected File</span>
+              <kbd className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded border border-border">F2 / Right Click</kbd>
+            </div>
+            <div className="flex items-center justify-between py-1 border-b border-border/50">
+              <span className="text-muted-foreground">Quick Preview Selected File</span>
+              <kbd className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded border border-border">Space / Eye Icon</kbd>
+            </div>
+            <div className="flex items-center justify-between py-1 border-b border-border/50">
               <span className="text-muted-foreground">Global Spotlight Search</span>
               <kbd className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded border border-border">⌘K / Ctrl+K</kbd>
             </div>
@@ -880,6 +1043,70 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Floating Document Context Menu (Right Click & Quick Trigger) */}
+      {contextMenu && (
+        <DocumentContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          document={contextMenu.document}
+          onClose={() => setContextMenu(null)}
+          onPreview={(doc) => {
+            setDocForPreview(doc);
+            setPreviewDialogOpen(true);
+          }}
+          onRename={(doc) => {
+            setDocForRename(doc);
+            setRenameDialogOpen(true);
+          }}
+          onMove={(doc) => {
+            setDocForMove(doc);
+            setMoveDialogOpen(true);
+          }}
+          onChangeCategory={handleQuickChangeCategory}
+          onAdvanced={(doc) => {
+            setDocForAdvanced(doc);
+            setAdvancedDialogOpen(true);
+          }}
+          onDownload={handleDownloadDoc}
+          onUnlink={handleUnlinkDocument}
+          onDelete={handleDeleteDocument}
+        />
+      )}
+
+      {/* Rename Document Dialog */}
+      <RenameDocumentDialog
+        open={renameDialogOpen}
+        onOpenChange={setRenameDialogOpen}
+        currentName={docForRename?.original_file_name || ""}
+        onRename={handleRenameSubmit}
+      />
+
+      {/* Move / Reassign Document Dialog */}
+      <MoveDocumentDialog
+        open={moveDialogOpen}
+        onOpenChange={setMoveDialogOpen}
+        documentTitle={docForMove?.original_file_name || ""}
+        currentCourseId={courseId}
+        onMove={handleMoveSubmit}
+        onLinkAlso={handleLinkAlsoSubmit}
+      />
+
+      {/* Advanced Settings Document Dialog */}
+      <AdvancedDocumentDialog
+        open={advancedDialogOpen}
+        onOpenChange={setAdvancedDialogOpen}
+        document={docForAdvanced}
+        onSave={handleAdvancedSave}
+      />
+
+      {/* In-App Document Preview Modal */}
+      <DocumentPreviewDialog
+        open={previewDialogOpen}
+        onOpenChange={setPreviewDialogOpen}
+        document={docForPreview}
+        onDownload={() => docForPreview && handleDownloadDoc(docForPreview)}
+      />
     </div>
   );
 }

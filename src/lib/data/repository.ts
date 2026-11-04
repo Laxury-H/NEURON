@@ -999,6 +999,12 @@ export const DataRepository = {
     return true;
   },
 
+  async moveDocument(document_id: string, from_course_id: string, to_course_id: string): Promise<boolean> {
+    await this.unlinkDocumentFromCourse(from_course_id, document_id);
+    await this.linkDocumentToCourse(to_course_id, document_id);
+    return true;
+  },
+
   async deleteDocument(id: string): Promise<boolean> {
     if (isSupabaseConfigured()) {
       const supabase = createClient();

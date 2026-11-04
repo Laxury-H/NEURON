@@ -26,6 +26,7 @@ import {
   Check,
   Edit2,
   Eye,
+  FolderInput,
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { DocumentPreviewDialog } from "./document-preview-dialog";
@@ -41,6 +42,7 @@ interface DocumentDetailPanelProps {
   ) => Promise<void>;
   onUnlinkFromCourse: (documentId: string) => Promise<void>;
   onDeleteDocument: (documentId: string) => Promise<void>;
+  onMoveDocument?: (document: DocumentItem) => void;
 }
 
 export function DocumentDetailPanel({
@@ -49,6 +51,7 @@ export function DocumentDetailPanel({
   onUpdateDocument,
   onUnlinkFromCourse,
   onDeleteDocument,
+  onMoveDocument,
 }: DocumentDetailPanelProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [fileName, setFileName] = useState("");
@@ -214,23 +217,34 @@ export function DocumentDetailPanel({
         ) : (
           <div className="space-y-5">
             {/* Quick Actions */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className={`grid ${onMoveDocument ? "grid-cols-3" : "grid-cols-2"} gap-1.5`}>
               <Button
                 variant="default"
                 size="sm"
                 className="w-full text-xs"
                 onClick={() => setPreviewOpen(true)}
               >
-                <Eye className="h-3.5 w-3.5 mr-1.5" />
-                Preview File
+                <Eye className="h-3.5 w-3.5 mr-1" />
+                Preview
               </Button>
+              {onMoveDocument && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs"
+                  onClick={() => onMoveDocument(document)}
+                >
+                  <FolderInput className="h-3.5 w-3.5 mr-1" />
+                  Move
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
                 className="w-full text-xs"
                 onClick={handleDownload}
               >
-                <Download className="h-3.5 w-3.5 mr-1.5" />
+                <Download className="h-3.5 w-3.5 mr-1" />
                 Download
               </Button>
             </div>
