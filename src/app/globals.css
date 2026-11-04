@@ -129,6 +129,11 @@
   * {
     @apply border-border;
   }
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
@@ -265,6 +270,14 @@
     padding: 0.25rem 0.5rem !important;
     font-size: 0.75rem !important;
   }
+  .fc .fc-col-header-cell-cushion {
+    font-size: 0.7rem !important;
+    padding: 2px !important;
+  }
+  .fc .fc-daygrid-day-number {
+    font-size: 0.75rem !important;
+    padding: 2px 4px !important;
+  }
 }
 
 /* Event monochrome styling */
@@ -335,6 +348,10 @@ html.pure-bw.dark {
   border-color: currentColor;
 }
 
+.pure-bw .border-transparent {
+  border-color: transparent !important;
+}
+
 .pure-bw button,
 .pure-bw input,
 .pure-bw select,
@@ -352,19 +369,48 @@ html.pure-bw.dark {
   box-shadow: none !important;
 }
 
+/* 1-Bit Selection */
+.pure-bw ::selection {
+  background: #000000 !important;
+  color: #FFFFFF !important;
+}
+.pure-bw.dark ::selection,
+html.pure-bw.dark ::selection,
+html[data-pure-bw="true"].dark ::selection {
+  background: #FFFFFF !important;
+  color: #000000 !important;
+}
+
 /* 1-Bit React Flow Canvas Overrides */
 .pure-bw .react-flow__background {
   background-color: #FFFFFF !important;
 }
-.pure-bw.dark .react-flow__background {
+.pure-bw.dark .react-flow__background,
+html.pure-bw.dark .react-flow__background,
+html[data-pure-bw="true"].dark .react-flow__background {
   background-color: #000000 !important;
+}
+
+.pure-bw .react-flow__background circle,
+.pure-bw .react-flow__background-pattern circle {
+  fill: #000000 !important;
+}
+.pure-bw.dark .react-flow__background circle,
+.pure-bw.dark .react-flow__background-pattern circle,
+html.pure-bw.dark .react-flow__background circle,
+html.pure-bw.dark .react-flow__background-pattern circle,
+html[data-pure-bw="true"].dark .react-flow__background circle,
+html[data-pure-bw="true"].dark .react-flow__background-pattern circle {
+  fill: #FFFFFF !important;
 }
 
 .pure-bw .react-flow__edge-path {
   stroke: #000000 !important;
   stroke-width: 2px !important;
 }
-.pure-bw.dark .react-flow__edge-path {
+.pure-bw.dark .react-flow__edge-path,
+html.pure-bw.dark .react-flow__edge-path,
+html[data-pure-bw="true"].dark .react-flow__edge-path {
   stroke: #FFFFFF !important;
   stroke-width: 2px !important;
 }
@@ -374,7 +420,9 @@ html.pure-bw.dark {
   border: 2px solid #FFFFFF !important;
   border-radius: 0px !important;
 }
-.pure-bw.dark .react-flow__handle {
+.pure-bw.dark .react-flow__handle,
+html.pure-bw.dark .react-flow__handle,
+html[data-pure-bw="true"].dark .react-flow__handle {
   background: #FFFFFF !important;
   border: 2px solid #000000 !important;
   border-radius: 0px !important;
@@ -385,7 +433,9 @@ html.pure-bw.dark {
   border: 2px solid #000000 !important;
   background: #FFFFFF !important;
 }
-.pure-bw.dark .react-flow__controls {
+.pure-bw.dark .react-flow__controls,
+html.pure-bw.dark .react-flow__controls,
+html[data-pure-bw="true"].dark .react-flow__controls {
   border-color: #FFFFFF !important;
   background: #000000 !important;
 }
@@ -395,9 +445,53 @@ html.pure-bw.dark {
   border-bottom: 2px solid #000000 !important;
   fill: #000000 !important;
 }
-.pure-bw.dark .react-flow__controls-button {
+.pure-bw.dark .react-flow__controls-button,
+html.pure-bw.dark .react-flow__controls-button,
+html[data-pure-bw="true"].dark .react-flow__controls-button {
   border-bottom-color: #FFFFFF !important;
   fill: #FFFFFF !important;
+}
+
+.pure-bw .react-flow__minimap {
+  background-color: #FFFFFF !important;
+  border: 2px solid #000000 !important;
+  border-radius: 0px !important;
+  box-shadow: none !important;
+}
+.pure-bw.dark .react-flow__minimap,
+html.pure-bw.dark .react-flow__minimap,
+html[data-pure-bw="true"].dark .react-flow__minimap {
+  background-color: #000000 !important;
+  border: 2px solid #FFFFFF !important;
+  border-radius: 0px !important;
+  box-shadow: none !important;
+}
+.pure-bw .react-flow__minimap-node {
+  fill: #000000 !important;
+  stroke: #000000 !important;
+}
+.pure-bw.dark .react-flow__minimap-node,
+html.pure-bw.dark .react-flow__minimap-node,
+html[data-pure-bw="true"].dark .react-flow__minimap-node {
+  fill: #FFFFFF !important;
+  stroke: #FFFFFF !important;
+}
+
+/* 1-Bit Cards, Badges, and Dialogs */
+.pure-bw [class*="badge"],
+.pure-bw .badge {
+  background-color: #FFFFFF !important;
+  color: #000000 !important;
+  border: 1px solid #000000 !important;
+}
+.pure-bw.dark [class*="badge"],
+.pure-bw.dark .badge,
+html.pure-bw.dark [class*="badge"],
+html.pure-bw.dark .badge,
+html[data-pure-bw="true"].dark [class*="badge"] {
+  background-color: #000000 !important;
+  color: #FFFFFF !important;
+  border: 1px solid #FFFFFF !important;
 }
 
 /* 1-Bit FullCalendar Overrides */

@@ -35,8 +35,31 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${jetbrainsMono.variable}`}>
-      <body className="min-h-screen max-w-full overflow-x-hidden bg-background text-foreground font-sans antialiased selection:bg-neutral-900 selection:text-white dark:selection:bg-white dark:selection:text-black">
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${inter.variable} ${jetbrainsMono.variable} max-w-full overflow-x-hidden`}
+    >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const t = localStorage.getItem("neuron_theme");
+                const p = localStorage.getItem("neuron_pure_bw");
+                if (t === "dark" || (!t && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+                  document.documentElement.classList.add("dark");
+                }
+                if (p === "true") {
+                  document.documentElement.classList.add("pure-bw");
+                  document.documentElement.setAttribute("data-pure-bw", "true");
+                }
+              } catch (_) {}
+            `,
+          }}
+        />
+      </head>
+      <body className="min-h-screen max-w-full w-full overflow-x-hidden bg-background text-foreground font-sans antialiased selection:bg-neutral-900 selection:text-white dark:selection:bg-white dark:selection:text-black">
         <ThemeProvider>
           <TooltipProvider delayDuration={300}>
             {children}

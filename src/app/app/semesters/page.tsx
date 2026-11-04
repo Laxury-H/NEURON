@@ -187,7 +187,7 @@ export default function SemestersPage() {
               className="rounded-md border border-border bg-card transition-colors hover:border-neutral-400 dark:hover:border-neutral-600"
             >
               {/* Folder Header */}
-              <div className="flex items-center justify-between p-5 border-b border-border bg-secondary/30">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-5 border-b border-border bg-secondary/30 gap-3">
                 <div className="flex items-start space-x-3.5">
                   <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border border-border bg-background">
                     <Folder className="h-4 w-4 text-foreground" />
@@ -229,7 +229,7 @@ export default function SemestersPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center space-x-1.5">
+                <div className="flex items-center space-x-1.5 self-end sm:self-auto shrink-0">
                   <Link
                     href={`/app/calendar?semesterId=${semester.id}`}
                     className="hidden sm:inline-flex"

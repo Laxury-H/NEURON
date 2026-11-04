@@ -26,9 +26,10 @@ import {
 interface GlobalSearchProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSelect?: () => void;
 }
 
-export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
+export function GlobalSearch({ open, onOpenChange, onSelect }: GlobalSearchProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<GlobalSearchResult[]>([]);
@@ -68,6 +69,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
 
   const handleSelect = (url: string) => {
     onOpenChange(false);
+    if (onSelect) onSelect();
     router.push(url);
   };
 

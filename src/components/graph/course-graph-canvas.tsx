@@ -18,6 +18,7 @@ import "@xyflow/react/dist/style.css";
 
 import { Course, Person, DocumentItem, DocumentCategory, CourseGraphLayout, RelationshipType } from "@/types/database";
 import { DataRepository } from "@/lib/data/repository";
+import { useTheme } from "@/components/theme-provider";
 import { CourseNode } from "./nodes/course-node";
 import { RelationshipGroupNode } from "./nodes/relationship-group-node";
 import { FilesGroupNode } from "./nodes/files-group-node";
@@ -73,6 +74,7 @@ const nodeTypes = {
 
 function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
   const { fitView, getViewport, setViewport } = useReactFlow();
+  const { theme, pureBw } = useTheme();
 
   const [course, setCourse] = useState<Course | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
@@ -86,6 +88,13 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
   const [expandFiles, setExpandFiles] = useState<boolean>(false);
   const [showMiniMap, setShowMiniMap] = useState<boolean>(false);
   const [shortcutsOpen, setShortcutsOpen] = useState<boolean>(false);
+
+  // Responsive MiniMap default: only show by default on tablet/desktop (>= 768px), default hidden on mobile
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth >= 768) {
+      setShowMiniMap(true);
+    }
+  }, []);
 
   // Inspector Panel State
   const [selectedCourse, setSelectedCourse] = useState<boolean>(false);
@@ -176,6 +185,13 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
 
     const positions = savedLayout?.positions || {};
 
+    const centralEdgeStroke = pureBw
+      ? (theme === "dark" ? "#FFFFFF" : "#000000")
+      : "#737373";
+    const clusterEdgeStroke = pureBw
+      ? (theme === "dark" ? "#FFFFFF" : "#000000")
+      : "#A3A3A3";
+
     // 1. Central Course Node
     const coursePos = positions["course"] || { x: 380, y: 220 };
     newNodes.push({
@@ -210,7 +226,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
       target: "relationships",
       type: "smoothstep",
       animated: true,
-      style: { stroke: "#737373", strokeWidth: 1.5 },
+      style: { stroke: centralEdgeStroke, strokeWidth: pureBw ? 2 : 1.5 },
     });
 
     // 3. Files Group Node
@@ -233,7 +249,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
       target: "files",
       type: "smoothstep",
       animated: true,
-      style: { stroke: "#737373", strokeWidth: 1.5 },
+      style: { stroke: centralEdgeStroke, strokeWidth: pureBw ? 2 : 1.5 },
     });
 
     // 4. Render Person Nodes if Relationships is expanded
@@ -270,7 +286,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
           source: "relationships",
           target: nodeId,
           type: "smoothstep",
-          style: { stroke: "#A3A3A3", strokeWidth: 1 },
+          style: { stroke: clusterEdgeStroke, strokeWidth: pureBw ? 2 : 1 },
         });
       });
     }
@@ -322,7 +338,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
           source: "files",
           target: nodeId,
           type: "smoothstep",
-          style: { stroke: "#A3A3A3", strokeWidth: 1 },
+          style: { stroke: clusterEdgeStroke, strokeWidth: pureBw ? 2 : 1 },
         });
       });
     }
@@ -339,6 +355,8 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
     graphSearchQuery,
     selectedPerson,
     selectedDocument,
+    pureBw,
+    theme,
     setNodes,
     setEdges,
   ]);
@@ -794,7 +812,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
             value={graphSearchQuery}
             onChange={(e) => setGraphSearchQuery(e.target.value)}
             placeholder="Search..."
-            className="h-7 w-20 xs:w-28 sm:w-36 md:w-48 border-0 shadow-none px-1 text-xs focus-visible:ring-0 bg-transparent"
+            className="h-7 w-28 sm:w-44 md:w-56 border-0 shadow-none px-1 text-xs focus-visible:ring-0 bg-transparent shrink-0"
           />
         </div>
 
@@ -906,18 +924,35 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         }}
         proOptions={{ hideAttribution: true }}
       >
-        <Background gap={24} size={1} color="#D4D4D4" className="dark:!opacity-20" />
+        <Background
+          gap={24}
+          size={1}
+          color={pureBw ? (theme === "dark" ? "#FFFFFF" : "#000000") : (theme === "dark" ? "#404040" : "#D4D4D4")}
+          className={pureBw ? "!opacity-100" : "dark:!opacity-20"}
+        />
         <Controls showInteractive={false} position="bottom-left" className="!bottom-3 !left-3 sm:!bottom-4 sm:!left-4" />
         {showMiniMap && (
           <MiniMap
-            nodeStrokeColor="#737373"
-            nodeColor="#171717"
-            nodeBorderRadius={3}
-            maskColor="rgba(0, 0, 0, 0.45)"
+            nodeStrokeColor={pureBw ? (theme === "dark" ? "#FFFFFF" : "#000000") : "#737373"}
+            nodeColor={pureBw ? (theme === "dark" ? "#FFFFFF" : "#000000") : (theme === "dark" ? "#FFFFFF" : "#171717")}
+            nodeBorderRadius={pureBw ? 0 : 3}
+            maskColor={pureBw ? (theme === "dark" ? "rgba(255, 255, 255, 0.15)" : "rgba(0, 0, 0, 0.15)") : "rgba(0, 0, 0, 0.45)"}
             className="!bottom-3 !right-3 sm:!bottom-4 sm:!right-4 !w-28 !h-20 sm:!w-44 sm:!h-28 !bg-card/90 !border !border-border !rounded-md !shadow-md backdrop-blur-sm"
           />
         )}
       </ReactFlow>
+
+      {/* Mobile Backdrop for Inspector Panels */}
+      {(selectedCourse || selectedPerson || selectedDocument) && (
+        <div
+          className="fixed inset-0 z-30 bg-black/40 sm:hidden"
+          onClick={() => {
+            setSelectedCourse(false);
+            setSelectedPerson(null);
+            setSelectedDocument(null);
+          }}
+        />
+      )}
 
       {/* Inspector Detail Panels */}
       {selectedCourse && (
@@ -984,14 +1019,14 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         onSave={handleUpdateCourse}
       />
 
-      {/* Bottom Status Pill */}
-      <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 z-10 hidden sm:flex items-center space-x-2 px-2.5 py-1 rounded-full border border-border bg-card/85 backdrop-blur-sm text-[10px] font-mono text-muted-foreground shadow-sm pointer-events-none">
-        <span className="h-1.5 w-1.5 rounded-full bg-foreground animate-pulse" />
-        <span>{people.length} People</span>
-        <span>•</span>
-        <span>{documents.length} Files</span>
-        <span>•</span>
-        <span>Auto-saved</span>
+      {/* Bottom Status Pill — Safely positioned on bottom-left beside canvas controls */}
+      <div className="absolute bottom-3 left-14 sm:bottom-4 sm:left-14 z-10 flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-2.5 py-1 rounded-full border border-border bg-card/90 backdrop-blur-sm text-[10px] font-mono text-muted-foreground shadow-sm pointer-events-none max-w-[calc(100vw-12rem)] truncate">
+        <span className="h-1.5 w-1.5 rounded-full bg-foreground animate-pulse shrink-0" />
+        <span className="hidden xs:inline">{people.length} People</span>
+        <span className="hidden xs:inline">•</span>
+        <span className="hidden xs:inline">{documents.length} Files</span>
+        <span className="hidden xs:inline">•</span>
+        <span className="truncate">Auto-saved</span>
       </div>
 
       {/* Keyboard Shortcuts Dialog */}

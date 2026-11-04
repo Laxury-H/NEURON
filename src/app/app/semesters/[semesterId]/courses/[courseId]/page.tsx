@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { useTheme } from "@/components/theme-provider";
 import {
   ArrowLeft,
   Calendar,
@@ -22,11 +23,13 @@ import {
   ChevronDown,
   BookOpen,
   Layers,
+  Contrast,
 } from "lucide-react";
 
 export default function CourseGraphPage() {
   const params = useParams();
   const router = useRouter();
+  const { pureBw, togglePureBw } = useTheme();
   const semesterId = params.semesterId as string;
   const courseId = params.courseId as string;
 
@@ -137,9 +140,20 @@ export default function CourseGraphPage() {
         </div>
 
         {/* Right Action Buttons */}
-        <div className="flex items-center space-x-2 shrink-0">
+        <div className="flex items-center space-x-1.5 shrink-0">
+          <Button
+            variant={pureBw ? "default" : "outline"}
+            size="sm"
+            onClick={togglePureBw}
+            className="h-7 text-xs px-2 font-mono shrink-0"
+            title="Toggle Pure 1-Bit Black & White Mode (#000000 & #FFFFFF only)"
+          >
+            <Contrast className="h-3 w-3 sm:mr-1 shrink-0" />
+            <span className="hidden sm:inline">{pureBw ? "1-BIT ON" : "1-BIT B&W"}</span>
+          </Button>
+
           <Link href={`/app/calendar?semesterId=${semesterId}&courseId=${course.id}`}>
-            <Button variant="outline" size="sm" className="h-7 text-xs px-2.5">
+            <Button variant="outline" size="sm" className="h-7 text-xs px-2.5 shrink-0">
               <Calendar className="h-3 w-3 sm:mr-1 text-muted-foreground" />
               <span className="hidden sm:inline">Course</span> Schedule
             </Button>

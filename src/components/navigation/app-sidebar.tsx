@@ -103,7 +103,11 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
 
   return (
     <>
-      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
+      <GlobalSearch
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        onSelect={onCloseMobile}
+      />
 
       {/* Mobile backdrop */}
       {mobileOpen && (
@@ -115,7 +119,7 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
 
       <aside
         className={cn(
-          "fixed top-0 bottom-0 left-0 z-40 flex w-64 flex-col border-r border-border bg-sidebar transition-transform duration-200 ease-in-out md:static md:translate-x-0",
+          "fixed top-0 bottom-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-sidebar transition-transform duration-200 ease-in-out md:static md:translate-x-0 md:z-auto",
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         )}
       >
@@ -141,8 +145,21 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
             <Button
               variant="ghost"
               size="iconSm"
+              onClick={togglePureBw}
+              className={cn(
+                "h-7 w-7 transition-colors",
+                pureBw ? "text-foreground font-bold" : "text-muted-foreground hover:text-foreground"
+              )}
+              title={pureBw ? "Switch to Standard Grayscale Monochrome" : "Switch to Pure 1-Bit B&W (#000000 & #FFFFFF)"}
+              aria-label="Toggle Pure 1-Bit Monochrome"
+            >
+              <Contrast className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="iconSm"
               onClick={() => setSearchOpen(true)}
-              className="text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground h-7 w-7"
               title="Search (Ctrl+K)"
             >
               <Search className="h-4 w-4" />
@@ -151,7 +168,7 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
               variant="ghost"
               size="iconSm"
               onClick={onCloseMobile}
-              className="text-muted-foreground hover:text-foreground md:hidden"
+              className="text-muted-foreground hover:text-foreground md:hidden h-8 w-8"
               title="Close navigation"
               aria-label="Close menu"
             >
@@ -217,6 +234,7 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
               </span>
               <Link
                 href="/app/semesters"
+                onClick={onCloseMobile}
                 className="text-muted-foreground hover:text-foreground"
                 title="Create semester"
               >
