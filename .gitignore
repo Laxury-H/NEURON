@@ -26,6 +26,9 @@ yarn-error.log*
 # local env files
 .env*.local
 
+# agent scratchpad & logs
+/.agents/
+
 # vercel
 .vercel
 
