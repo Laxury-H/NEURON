@@ -8,25 +8,36 @@ interface ThemeContextType {
   theme: Theme;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
+  pureBw: boolean;
+  setPureBw: (pureBw: boolean) => void;
+  togglePureBw: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("light");
+  const [pureBw, setPureBwState] = useState<boolean>(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("neuron_theme") as Theme | null;
-    if (saved === "dark" || saved === "light") {
-      setThemeState(saved);
-      document.documentElement.classList.toggle("dark", saved === "dark");
+    // Theme initialization
+    const savedTheme = localStorage.getItem("neuron_theme") as Theme | null;
+    if (savedTheme === "dark" || savedTheme === "light") {
+      setThemeState(savedTheme);
+      document.documentElement.classList.toggle("dark", savedTheme === "dark");
     } else {
       const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      // Default to light as specified in master prompt
       const initial = prefersDark ? "dark" : "light";
       setThemeState(initial);
       document.documentElement.classList.toggle("dark", initial === "dark");
     }
+
+    // Pure 1-bit B&W initialization
+    const savedPureBw = localStorage.getItem("neuron_pure_bw");
+    const isPure = savedPureBw === "true";
+    setPureBwState(isPure);
+    document.documentElement.classList.toggle("pure-bw", isPure);
+    document.documentElement.setAttribute("data-pure-bw", isPure ? "true" : "false");
   }, []);
 
   const setTheme = (newTheme: Theme) => {
@@ -39,9 +50,29 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setTheme(theme === "light" ? "dark" : "light");
   };
 
+  const setPureBw = (newPureBw: boolean) => {
+    setPureBwState(newPureBw);
+    localStorage.setItem("neuron_pure_bw", String(newPureBw));
+    document.documentElement.classList.toggle("pure-bw", newPureBw);
+    document.documentElement.setAttribute("data-pure-bw", newPureBw ? "true" : "false");
+  };
+
+  const togglePureBw = () => {
+    setPureBw(!pureBw);
+  };
+
   // Avoid flash
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
+    <ThemeContext.Provider
+      value={{
+        theme,
+        setTheme,
+        toggleTheme,
+        pureBw,
+        setPureBw,
+        togglePureBw,
+      }}
+    >
       {children}
     </ThemeContext.Provider>
   );

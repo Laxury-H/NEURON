@@ -22,6 +22,8 @@ import {
   Folder,
   CircleDot,
   Search,
+  X,
+  Contrast,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GlobalSearch } from "./global-search";
@@ -35,7 +37,7 @@ interface AppSidebarProps {
 export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, pureBw, togglePureBw } = useTheme();
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [expandedSemesters, setExpandedSemesters] = useState<Record<string, boolean>>({});
   const [searchOpen, setSearchOpen] = useState(false);
@@ -135,15 +137,27 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
             </div>
           </Link>
 
-          <Button
-            variant="ghost"
-            size="iconSm"
-            onClick={() => setSearchOpen(true)}
-            className="text-muted-foreground hover:text-foreground"
-            title="Search (Ctrl+K)"
-          >
-            <Search className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center space-x-1">
+            <Button
+              variant="ghost"
+              size="iconSm"
+              onClick={() => setSearchOpen(true)}
+              className="text-muted-foreground hover:text-foreground"
+              title="Search (Ctrl+K)"
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="iconSm"
+              onClick={onCloseMobile}
+              className="text-muted-foreground hover:text-foreground md:hidden"
+              title="Close navigation"
+              aria-label="Close menu"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         {/* Search Bar Trigger */}
@@ -308,6 +322,25 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
             <Settings className="h-4 w-4 shrink-0" />
             <span>Settings</span>
           </Link>
+
+          {/* 1-Bit Pure B&W Mode Button */}
+          <button
+            type="button"
+            onClick={togglePureBw}
+            className={cn(
+              "w-full flex items-center justify-between px-2.5 py-1.5 rounded-sm border text-xs font-mono transition-colors",
+              pureBw
+                ? "border-foreground bg-foreground text-background font-semibold"
+                : "border-border bg-background text-muted-foreground hover:text-foreground"
+            )}
+            title="Toggle Pure 1-Bit Monochrome Mode (#000000 & #FFFFFF only)"
+          >
+            <span className="flex items-center space-x-1.5">
+              <Contrast className="h-3.5 w-3.5 shrink-0" />
+              <span>Pure 1-Bit B&W</span>
+            </span>
+            <span className="text-[10px] px-1 py-0.2 rounded border border-current">{pureBw ? "ON" : "OFF"}</span>
+          </button>
 
           <div className="flex items-center justify-between pt-1 px-2 text-xs">
             <button

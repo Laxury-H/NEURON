@@ -24,9 +24,9 @@ export function CourseDetailPanel({
   if (!course) return null;
 
   return (
-    <div className="absolute top-0 right-0 bottom-0 w-80 md:w-96 border-l border-border bg-background shadow-xl z-30 flex flex-col overflow-hidden animate-in slide-in-from-right duration-200">
+    <div className="fixed inset-y-0 right-0 w-full sm:w-96 max-w-full z-40 bg-background border-l border-border shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-200">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-border p-4 bg-muted/40">
+      <div className="flex items-center justify-between border-b border-border p-3.5 sm:p-4 bg-muted/40">
         <div className="flex items-center space-x-2.5 overflow-hidden">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground font-mono text-xs font-bold">
             <BookOpen className="h-4 w-4" />
@@ -52,11 +52,13 @@ export function CourseDetailPanel({
           </Button>
           <Button
             variant="ghost"
-            size="iconSm"
+            size="icon"
             onClick={onClose}
+            className="h-8 w-8 text-foreground"
             title="Close panel"
+            aria-label="Close detail panel"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </Button>
         </div>
       </div>

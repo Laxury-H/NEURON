@@ -292,17 +292,17 @@ export function SemesterCalendar({
   return (
     <div className="relative flex flex-col h-[calc(100vh-3.5rem)] md:h-screen p-4 md:p-6 space-y-4 overflow-hidden">
       {/* Top Header & Toolbar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-border pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3 sm:pb-4 shrink-0">
         {/* Semester selector */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <div className="flex items-center space-x-2 shrink-0">
             <CalendarIcon className="h-4 w-4 text-muted-foreground" />
             <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground font-semibold">
               Semester:
             </span>
           </div>
 
-          <div className="w-56">
+          <div className="w-44 xs:w-52 sm:w-56 shrink-0">
             <Select
               value={selectedSemesterId}
               onValueChange={setSelectedSemesterId}
@@ -328,7 +328,7 @@ export function SemesterCalendar({
           )}
 
           {/* View switcher buttons */}
-          <div className="flex items-center rounded-md border border-border p-0.5 bg-muted">
+          <div className="flex items-center rounded-md border border-border p-0.5 bg-muted shrink-0">
             <button
               onClick={() => handleViewChange("dayGridMonth")}
               className={cn(
@@ -366,7 +366,7 @@ export function SemesterCalendar({
         </div>
 
         {/* Right actions */}
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 shrink-0">
           <Button
             size="sm"
             className="h-8 text-xs"
@@ -383,13 +383,13 @@ export function SemesterCalendar({
       </div>
 
       {/* Filter Ribbon */}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs border border-border bg-card p-2.5 rounded-md">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 text-xs border border-border bg-card p-2 sm:p-2.5 rounded-md max-w-full overflow-hidden shrink-0">
         {/* Course Filter Dropdown */}
-        <div className="flex items-center space-x-2">
-          <span className="font-mono text-[10px] uppercase text-muted-foreground">
+        <div className="flex items-center space-x-2 shrink-0">
+          <span className="font-mono text-[10px] uppercase text-muted-foreground shrink-0">
             Filter Course:
           </span>
-          <div className="w-44">
+          <div className="w-36 xs:w-44">
             <Select
               value={selectedCourseFilter}
               onValueChange={setSelectedCourseFilter}
@@ -409,9 +409,9 @@ export function SemesterCalendar({
           </div>
         </div>
 
-        {/* Event Type Filter Chips (Strict Monochrome) */}
-        <div className="flex items-center space-x-1.5 flex-wrap">
-          <span className="font-mono text-[10px] uppercase text-muted-foreground mr-1 hidden sm:inline">
+        {/* Event Type Filter Chips (Strict Monochrome, horizontally scrollable on mobile) */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full scrollbar-none shrink-0">
+          <span className="font-mono text-[10px] uppercase text-muted-foreground mr-0.5 shrink-0 hidden lg:inline">
             Categories:
           </span>
           {(["CLASS", "EXAM", "DEADLINE", "PERSONAL"] as EventType[]).map((type) => {
@@ -421,7 +421,7 @@ export function SemesterCalendar({
                 key={type}
                 onClick={() => toggleTypeFilter(type)}
                 className={cn(
-                  "flex items-center space-x-1.5 px-2 py-0.5 rounded-sm border text-[11px] font-mono transition-colors",
+                  "flex items-center space-x-1.5 px-2 py-0.5 rounded-sm border text-[11px] font-mono transition-colors shrink-0 whitespace-nowrap",
                   active
                     ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900 font-semibold"
                     : "border-border bg-background text-muted-foreground hover:border-neutral-400"

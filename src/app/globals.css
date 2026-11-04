@@ -59,6 +59,70 @@
     --sidebar-accent: 0 0% 18%;
     --sidebar-accent-foreground: 0 0% 100%;
   }
+
+  /* Pure 1-Bit Black & White (No Grays, Pure High-Contrast Brutalist) */
+  .pure-bw,
+  [data-pure-bw="true"] {
+    --background: 0 0% 100%;       /* #FFFFFF */
+    --foreground: 0 0% 0%;         /* #000000 */
+    --card: 0 0% 100%;             /* #FFFFFF */
+    --card-foreground: 0 0% 0%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 0%;
+    --primary: 0 0% 0%;            /* #000000 */
+    --primary-foreground: 0 0% 100%; /* #FFFFFF */
+    --secondary: 0 0% 100%;
+    --secondary-foreground: 0 0% 0%;
+    --muted: 0 0% 100%;
+    --muted-foreground: 0 0% 0%;
+    --accent: 0 0% 0%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 0% 0%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 0%;            /* #000000 */
+    --input: 0 0% 0%;
+    --ring: 0 0% 0%;
+    --radius: 0px;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 0 0% 0%;
+    --sidebar-border: 0 0% 0%;
+    --sidebar-accent: 0 0% 0%;
+    --sidebar-accent-foreground: 0 0% 100%;
+  }
+
+  .pure-bw.dark,
+  .pure-bw .dark,
+  html.pure-bw.dark,
+  [data-pure-bw="true"].dark,
+  html[data-pure-bw="true"].dark {
+    --background: 0 0% 0%;         /* #000000 */
+    --foreground: 0 0% 100%;       /* #FFFFFF */
+    --card: 0 0% 0%;              /* #000000 */
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 0%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 0 0% 100%;          /* #FFFFFF */
+    --primary-foreground: 0 0% 0%; /* #000000 */
+    --secondary: 0 0% 0%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 0%;
+    --muted-foreground: 0 0% 100%;
+    --accent: 0 0% 100%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 0% 100%;
+    --destructive-foreground: 0 0% 0%;
+    --border: 0 0% 100%;           /* #FFFFFF */
+    --input: 0 0% 100%;
+    --ring: 0 0% 100%;
+    --radius: 0px;
+
+    --sidebar-background: 0 0% 0%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 100%;
+    --sidebar-accent: 0 0% 100%;
+    --sidebar-accent-foreground: 0 0% 0%;
+  }
 }
 
 @layer base {
@@ -184,6 +248,25 @@
   color: #171717 !important;
 }
 
+@media (max-width: 640px) {
+  .fc .fc-toolbar {
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  .fc .fc-toolbar-chunk {
+    display: flex !important;
+    align-items: center !important;
+  }
+  .fc .fc-toolbar-title {
+    font-size: 0.95rem !important;
+  }
+  .fc .fc-button-primary {
+    padding: 0.25rem 0.5rem !important;
+    font-size: 0.75rem !important;
+  }
+}
+
 /* Event monochrome styling */
 .fc-event {
   background-color: #171717 !important;
@@ -231,3 +314,177 @@
   border: 1px dashed #A3A3A3 !important;
   color: #FAFAFA !important;
 }
+
+/* =========================================================================
+   PURE 1-BIT MONOCHROME CONTRAST MODE (#000000 & #FFFFFF ONLY)
+   ========================================================================= */
+
+.pure-bw {
+  color-scheme: light;
+}
+
+.pure-bw.dark,
+html.pure-bw.dark {
+  color-scheme: dark;
+}
+
+/* Sharp Brutalist edges & solid 1-bit contrast */
+.pure-bw *,
+.pure-bw *::before,
+.pure-bw *::after {
+  border-color: currentColor;
+}
+
+.pure-bw button,
+.pure-bw input,
+.pure-bw select,
+.pure-bw textarea,
+.pure-bw [class*="rounded"] {
+  border-radius: 0px !important;
+}
+
+.pure-bw .shadow-sm,
+.pure-bw .shadow,
+.pure-bw .shadow-md,
+.pure-bw .shadow-lg,
+.pure-bw .shadow-xl,
+.pure-bw .shadow-2xl {
+  box-shadow: none !important;
+}
+
+/* 1-Bit React Flow Canvas Overrides */
+.pure-bw .react-flow__background {
+  background-color: #FFFFFF !important;
+}
+.pure-bw.dark .react-flow__background {
+  background-color: #000000 !important;
+}
+
+.pure-bw .react-flow__edge-path {
+  stroke: #000000 !important;
+  stroke-width: 2px !important;
+}
+.pure-bw.dark .react-flow__edge-path {
+  stroke: #FFFFFF !important;
+  stroke-width: 2px !important;
+}
+
+.pure-bw .react-flow__handle {
+  background: #000000 !important;
+  border: 2px solid #FFFFFF !important;
+  border-radius: 0px !important;
+}
+.pure-bw.dark .react-flow__handle {
+  background: #FFFFFF !important;
+  border: 2px solid #000000 !important;
+  border-radius: 0px !important;
+}
+
+.pure-bw .react-flow__controls {
+  border-radius: 0px !important;
+  border: 2px solid #000000 !important;
+  background: #FFFFFF !important;
+}
+.pure-bw.dark .react-flow__controls {
+  border-color: #FFFFFF !important;
+  background: #000000 !important;
+}
+
+.pure-bw .react-flow__controls-button {
+  background: transparent !important;
+  border-bottom: 2px solid #000000 !important;
+  fill: #000000 !important;
+}
+.pure-bw.dark .react-flow__controls-button {
+  border-bottom-color: #FFFFFF !important;
+  fill: #FFFFFF !important;
+}
+
+/* 1-Bit FullCalendar Overrides */
+.pure-bw .fc {
+  --fc-border-color: #000000;
+  --fc-today-bg-color: #FFFFFF;
+}
+.pure-bw.dark .fc {
+  --fc-border-color: #FFFFFF;
+  --fc-today-bg-color: #000000;
+}
+
+.pure-bw .fc .fc-button-primary {
+  background-color: #FFFFFF !important;
+  border: 2px solid #000000 !important;
+  color: #000000 !important;
+  border-radius: 0px !important;
+  font-weight: 700 !important;
+}
+.pure-bw .fc .fc-button-active {
+  background-color: #000000 !important;
+  border: 2px solid #000000 !important;
+  color: #FFFFFF !important;
+}
+.pure-bw.dark .fc .fc-button-primary {
+  background-color: #000000 !important;
+  border: 2px solid #FFFFFF !important;
+  color: #FFFFFF !important;
+  border-radius: 0px !important;
+  font-weight: 700 !important;
+}
+.pure-bw.dark .fc .fc-button-active {
+  background-color: #FFFFFF !important;
+  border: 2px solid #FFFFFF !important;
+  color: #000000 !important;
+}
+
+.pure-bw .fc-event {
+  background-color: #000000 !important;
+  border: 2px solid #000000 !important;
+  color: #FFFFFF !important;
+  border-radius: 0px !important;
+  font-weight: 600 !important;
+}
+.pure-bw.dark .fc-event {
+  background-color: #FFFFFF !important;
+  border: 2px solid #FFFFFF !important;
+  color: #000000 !important;
+  border-radius: 0px !important;
+  font-weight: 600 !important;
+}
+.pure-bw .fc-event.fc-event-deadline {
+  background-color: #FFFFFF !important;
+  border: 2px dashed #000000 !important;
+  color: #000000 !important;
+}
+.pure-bw.dark .fc-event.fc-event-deadline {
+  background-color: #000000 !important;
+  border: 2px dashed #FFFFFF !important;
+  color: #FFFFFF !important;
+}
+.pure-bw .fc-event.fc-event-exam {
+  background-color: #000000 !important;
+  border: 3px double #000000 !important;
+  color: #FFFFFF !important;
+  text-decoration: underline !important;
+}
+.pure-bw.dark .fc-event.fc-event-exam {
+  background-color: #FFFFFF !important;
+  border: 3px double #FFFFFF !important;
+  color: #000000 !important;
+  text-decoration: underline !important;
+}
+.pure-bw .fc-event.fc-event-personal {
+  background-color: transparent !important;
+  border: 2px dotted #000000 !important;
+  color: #000000 !important;
+}
+.pure-bw.dark .fc-event.fc-event-personal {
+  background-color: transparent !important;
+  border: 2px dotted #FFFFFF !important;
+  color: #FFFFFF !important;
+}
+.pure-bw .fc-daygrid-event-dot {
+  border-color: #000000 !important;
+}
+.pure-bw.dark .fc-daygrid-event-dot {
+  border-color: #FFFFFF !important;
+}
+

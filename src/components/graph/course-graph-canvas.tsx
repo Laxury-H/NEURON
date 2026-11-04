@@ -787,41 +787,45 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
   return (
     <div className="relative h-full w-full select-none overflow-hidden bg-background">
       {/* Top Floating Graph Toolbar */}
-      <div className="absolute top-4 left-4 z-20 flex flex-wrap items-center gap-2 bg-card/90 backdrop-blur-sm border border-border p-1.5 rounded-md shadow-sm">
-        <div className="flex items-center space-x-1.5 px-2 border-r border-border">
+      <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 flex max-w-[calc(100vw-1.5rem)] sm:max-w-[calc(100vw-2rem)] items-center gap-1.5 bg-card/90 backdrop-blur-sm border border-border p-1 sm:p-1.5 rounded-md shadow-sm overflow-x-auto scrollbar-none">
+        <div className="flex items-center space-x-1 sm:space-x-1.5 px-1.5 sm:px-2 border-r border-border shrink-0">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
           <Input
             value={graphSearchQuery}
             onChange={(e) => setGraphSearchQuery(e.target.value)}
-            placeholder="Search nodes..."
-            className="h-7 w-32 md:w-44 border-0 shadow-none px-1 text-xs focus-visible:ring-0 bg-transparent"
+            placeholder="Search..."
+            className="h-7 w-20 xs:w-28 sm:w-36 md:w-48 border-0 shadow-none px-1 text-xs focus-visible:ring-0 bg-transparent"
           />
         </div>
 
         <Button
           variant="outline"
           size="sm"
-          className="h-7 text-xs"
+          className="h-7 text-xs px-2 shrink-0"
           onClick={() => setAddPersonOpen(true)}
+          title="Connect Person"
         >
-          <UserPlus className="h-3 w-3 mr-1" />
-          Connect Person
+          <UserPlus className="h-3 w-3 sm:mr-1 shrink-0" />
+          <span className="hidden sm:inline">Connect Person</span>
+          <span className="sm:hidden text-[11px]">Person</span>
         </Button>
 
         <Button
           variant="outline"
           size="sm"
-          className="h-7 text-xs"
+          className="h-7 text-xs px-2 shrink-0"
           onClick={() => setUploadDocOpen(true)}
+          title="Attach File"
         >
-          <FileUp className="h-3 w-3 mr-1" />
-          Attach File
+          <FileUp className="h-3 w-3 sm:mr-1 shrink-0" />
+          <span className="hidden sm:inline">Attach File</span>
+          <span className="sm:hidden text-[11px]">File</span>
         </Button>
 
         <Button
           variant="outline"
           size="sm"
-          className="h-7 text-xs"
+          className="h-7 text-xs px-2 shrink-0"
           onClick={() => {
             const nextState = !(expandRelationships && expandFiles);
             setExpandRelationships(nextState);
@@ -831,13 +835,13 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         >
           {expandRelationships && expandFiles ? (
             <>
-              <FoldHorizontal className="h-3 w-3 mr-1" />
-              <span className="hidden sm:inline">Collapse</span>
+              <FoldHorizontal className="h-3 w-3 sm:mr-1 shrink-0" />
+              <span className="hidden md:inline">Collapse</span>
             </>
           ) : (
             <>
-              <UnfoldHorizontal className="h-3 w-3 mr-1" />
-              <span className="hidden sm:inline">Expand All</span>
+              <UnfoldHorizontal className="h-3 w-3 sm:mr-1 shrink-0" />
+              <span className="hidden md:inline">Expand</span>
             </>
           )}
         </Button>
@@ -845,7 +849,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         <Button
           variant="ghost"
           size="iconSm"
-          className="h-7 w-7"
+          className="h-7 w-7 shrink-0"
           onClick={() => fitView({ duration: 400 })}
           title="Fit view to screen (F)"
         >
@@ -855,7 +859,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         <Button
           variant="ghost"
           size="iconSm"
-          className="h-7 w-7"
+          className="h-7 w-7 shrink-0"
           onClick={handleResetLayout}
           title="Reset neural layout (R)"
         >
@@ -865,7 +869,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         <Button
           variant={showMiniMap ? "secondary" : "ghost"}
           size="iconSm"
-          className="h-7 w-7"
+          className="h-7 w-7 shrink-0"
           onClick={() => setShowMiniMap((prev) => !prev)}
           title="Toggle MiniMap (M)"
         >
@@ -875,7 +879,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         <Button
           variant="ghost"
           size="iconSm"
-          className="h-7 w-7"
+          className="h-7 w-7 shrink-0"
           onClick={() => setShortcutsOpen(true)}
           title="Keyboard Shortcuts (?)"
         >
@@ -903,14 +907,14 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={24} size={1} color="#D4D4D4" className="dark:!opacity-20" />
-        <Controls showInteractive={false} position="bottom-left" />
+        <Controls showInteractive={false} position="bottom-left" className="!bottom-3 !left-3 sm:!bottom-4 sm:!left-4" />
         {showMiniMap && (
           <MiniMap
             nodeStrokeColor="#737373"
             nodeColor="#171717"
             nodeBorderRadius={3}
             maskColor="rgba(0, 0, 0, 0.45)"
-            className="!bottom-4 !right-4 !bg-card/90 !border !border-border !rounded-md !shadow-md backdrop-blur-sm"
+            className="!bottom-3 !right-3 sm:!bottom-4 sm:!right-4 !w-28 !h-20 sm:!w-44 sm:!h-28 !bg-card/90 !border !border-border !rounded-md !shadow-md backdrop-blur-sm"
           />
         )}
       </ReactFlow>
@@ -981,7 +985,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
       />
 
       {/* Bottom Status Pill */}
-      <div className="absolute bottom-4 right-4 z-10 hidden sm:flex items-center space-x-2 px-2.5 py-1 rounded-full border border-border bg-card/85 backdrop-blur-sm text-[10px] font-mono text-muted-foreground shadow-sm pointer-events-none">
+      <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 z-10 hidden sm:flex items-center space-x-2 px-2.5 py-1 rounded-full border border-border bg-card/85 backdrop-blur-sm text-[10px] font-mono text-muted-foreground shadow-sm pointer-events-none">
         <span className="h-1.5 w-1.5 rounded-full bg-foreground animate-pulse" />
         <span>{people.length} People</span>
         <span>•</span>

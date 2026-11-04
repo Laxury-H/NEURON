@@ -26,10 +26,11 @@ import {
   Database,
   ShieldCheck,
   User,
+  Contrast,
 } from "lucide-react";
 
 export default function SettingsPage() {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, pureBw, setPureBw } = useTheme();
   const [displayName, setDisplayName] = useState("Alex Vance");
   const [timezone, setTimezone] = useState("Asia/Ho_Chi_Minh");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -173,6 +174,39 @@ export default function SettingsPage() {
                   <span>Dark Mode (Monochrome)</span>
                 </button>
               </div>
+            </div>
+
+            <div className="space-y-1.5 pt-2">
+              <Label>Contrast Engine (1-Bit Mode)</Label>
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setPureBw(false)}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded border text-xs transition-colors ${
+                    !pureBw
+                      ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900 font-medium"
+                      : "border-border bg-background text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <span>Standard Monochrome (Soft Grayscale)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPureBw(true)}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded border text-xs transition-colors font-mono ${
+                    pureBw
+                      ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900 font-bold"
+                      : "border-border bg-background text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Contrast className="h-3.5 w-3.5" />
+                  <span>Pure 1-Bit B&W (#000000 & #FFFFFF Only)</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Pure 1-Bit mode disables all subtle grays and applies extreme high-contrast brutalist styling.
+              </p>
             </div>
 
             <div className="pt-2">

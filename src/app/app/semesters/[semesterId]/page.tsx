@@ -199,7 +199,7 @@ export default function SemesterDetailPage() {
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link href={`/app/calendar?semesterId=${semester.id}`}>
               <Button variant="outline" size="sm" className="h-8 text-xs">
                 <Calendar className="h-3.5 w-3.5 mr-1.5" />
@@ -234,7 +234,7 @@ export default function SemesterDetailPage() {
 
       {/* Courses Collection */}
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="flex items-center space-x-2">
             <h2 className="text-sm font-semibold uppercase tracking-wider font-mono text-muted-foreground">
               Courses ({courses.length})
@@ -244,7 +244,7 @@ export default function SemesterDetailPage() {
             </Badge>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
             {courses.length > 2 && (
               <div className="relative">
                 <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -298,7 +298,7 @@ export default function SemesterDetailPage() {
             No courses match &ldquo;{courseSearchQuery}&rdquo;
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredCourses.map((course) => (
               <div
                 key={course.id}

@@ -73,14 +73,14 @@ export default function CourseGraphPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-3rem)] md:h-screen overflow-hidden">
       {/* Top Navigation & Breadcrumbs Bar */}
-      <header className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-card px-4 text-xs z-30">
-        <div className="flex items-center space-x-2 truncate">
+      <header className="flex min-h-12 h-auto py-2 flex-wrap items-center justify-between border-b border-border bg-card px-3 sm:px-4 text-xs z-30 gap-2 shrink-0 max-w-full">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 max-w-full">
           <Link
             href={`/app/semesters/${semesterId}`}
-            className="flex items-center space-x-1.5 text-muted-foreground hover:text-foreground transition-colors font-medium"
+            className="flex items-center space-x-1 text-muted-foreground hover:text-foreground transition-colors font-medium shrink-0"
           >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">{semester?.name || "Semester"}</span>
+            <ArrowLeft className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden sm:inline truncate max-w-[120px]">{semester?.name || "Semester"}</span>
           </Link>
 
           <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -88,16 +88,16 @@ export default function CourseGraphPage() {
           {/* Sibling Course Switcher */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center space-x-1.5 px-2 py-1 rounded-sm border border-border bg-background hover:bg-muted transition-colors font-mono font-bold text-foreground max-w-[280px] sm:max-w-none">
+              <button className="flex items-center space-x-1.5 px-2 py-1 rounded-sm border border-border bg-background hover:bg-muted transition-colors font-mono font-bold text-foreground max-w-[190px] xs:max-w-[260px] sm:max-w-none truncate">
                 <BookOpen className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 <span className="truncate">{course.course_code}</span>
-                <span className="font-normal text-muted-foreground truncate hidden md:inline">
+                <span className="font-normal text-muted-foreground truncate hidden md:inline max-w-[200px] lg:max-w-[320px]">
                   — {course.course_name}
                 </span>
                 <ChevronDown className="h-3 w-3 text-muted-foreground shrink-0 opacity-70" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-64">
+            <DropdownMenuContent align="start" className="w-64 max-w-[90vw]">
               <div className="px-2 py-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground font-semibold">
                 Switch Course ({siblingCourses.length})
               </div>
@@ -130,7 +130,7 @@ export default function CourseGraphPage() {
           </Badge>
 
           {course.lecturer && (
-            <span className="text-[11px] text-muted-foreground truncate hidden lg:inline">
+            <span className="text-[11px] text-muted-foreground truncate hidden lg:inline max-w-[150px]">
               Prof. {course.lecturer}
             </span>
           )}
@@ -139,8 +139,8 @@ export default function CourseGraphPage() {
         {/* Right Action Buttons */}
         <div className="flex items-center space-x-2 shrink-0">
           <Link href={`/app/calendar?semesterId=${semesterId}&courseId=${course.id}`}>
-            <Button variant="outline" size="sm" className="h-7 text-xs">
-              <Calendar className="h-3 w-3 mr-1 text-muted-foreground" />
+            <Button variant="outline" size="sm" className="h-7 text-xs px-2.5">
+              <Calendar className="h-3 w-3 sm:mr-1 text-muted-foreground" />
               <span className="hidden sm:inline">Course</span> Schedule
             </Button>
           </Link>
