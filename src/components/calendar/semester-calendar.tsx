@@ -172,6 +172,18 @@ export function SemesterCalendar({
     });
   }, [events, selectedCourseFilter, activeTypeFilters]);
 
+  // Workload counts per category
+  const categoryCounts = useMemo(() => {
+    const counts: Record<EventType, number> = { CLASS: 0, EXAM: 0, DEADLINE: 0, PERSONAL: 0 };
+    events.forEach((ev) => {
+      if (selectedCourseFilter !== "all" && ev.course_id !== selectedCourseFilter) return;
+      if (counts[ev.event_type] !== undefined) {
+        counts[ev.event_type]++;
+      }
+    });
+    return counts;
+  }, [events, selectedCourseFilter]);
+
   // Map to FullCalendar event format with weekly recurrence expansion
   const calendarEvents = useMemo(() => {
     return filteredEvents.map((ev) => {
@@ -409,13 +421,16 @@ export function SemesterCalendar({
                 key={type}
                 onClick={() => toggleTypeFilter(type)}
                 className={cn(
-                  "flex items-center space-x-1 px-2 py-0.5 rounded-sm border text-[11px] font-mono transition-colors",
+                  "flex items-center space-x-1.5 px-2 py-0.5 rounded-sm border text-[11px] font-mono transition-colors",
                   active
                     ? "border-neutral-900 bg-neutral-900 text-white dark:border-white dark:bg-white dark:text-neutral-900 font-semibold"
                     : "border-border bg-background text-muted-foreground hover:border-neutral-400"
                 )}
               >
                 <span>{type}</span>
+                <span className={cn("text-[9px] opacity-75", active ? "text-white/90 dark:text-neutral-900/90" : "text-muted-foreground")}>
+                  ({categoryCounts[type]})
+                </span>
               </button>
             );
           })}

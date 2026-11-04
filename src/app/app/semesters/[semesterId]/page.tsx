@@ -7,6 +7,7 @@ import { Semester, Course } from "@/types/database";
 import { DataRepository } from "@/lib/data/repository";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { CourseDialog } from "@/components/courses/course-dialog";
 import { SemesterDialog } from "@/components/semesters/semester-dialog";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
@@ -24,6 +25,7 @@ import {
   Users,
   FileText,
   Network,
+  Search,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -45,6 +47,7 @@ export default function SemesterDetailPage() {
   // Dialogs
   const [courseDialogOpen, setCourseDialogOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [courseSearchQuery, setCourseSearchQuery] = useState("");
 
   const [semesterDialogOpen, setSemesterDialogOpen] = useState(false);
 
@@ -137,6 +140,17 @@ export default function SemesterDetailPage() {
 
   if (!semester) return null;
 
+  const totalCredits = courses.reduce((sum, c) => sum + (c.credits || 0), 0);
+  const filteredCourses = courses.filter((c) => {
+    if (!courseSearchQuery.trim()) return true;
+    const q = courseSearchQuery.toLowerCase();
+    return (
+      c.course_code.toLowerCase().includes(q) ||
+      c.course_name.toLowerCase().includes(q) ||
+      (c.lecturer && c.lecturer.toLowerCase().includes(q))
+    );
+  });
+
   return (
     <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-8">
       {/* Breadcrumb / Back button */}
@@ -220,22 +234,41 @@ export default function SemesterDetailPage() {
 
       {/* Courses Collection */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wider font-mono text-muted-foreground">
-            Courses ({courses.length})
-          </h2>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs h-7"
-            onClick={() => {
-              setEditingCourse(null);
-              setCourseDialogOpen(true);
-            }}
-          >
-            <Plus className="h-3.5 w-3.5 mr-1" />
-            New Course
-          </Button>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center space-x-2">
+            <h2 className="text-sm font-semibold uppercase tracking-wider font-mono text-muted-foreground">
+              Courses ({courses.length})
+            </h2>
+            <Badge variant="subtle" className="text-[10px] font-mono">
+              {totalCredits} Total Credits
+            </Badge>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            {courses.length > 2 && (
+              <div className="relative">
+                <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={courseSearchQuery}
+                  onChange={(e) => setCourseSearchQuery(e.target.value)}
+                  placeholder="Filter courses..."
+                  className="h-7 w-36 sm:w-48 text-xs pl-8 pr-2 bg-background"
+                />
+              </div>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => {
+                setEditingCourse(null);
+                setCourseDialogOpen(true);
+              }}
+            >
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              New Course
+            </Button>
+          </div>
         </div>
 
         {courses.length === 0 ? (
@@ -260,9 +293,13 @@ export default function SemesterDetailPage() {
               </Button>
             </div>
           </div>
+        ) : filteredCourses.length === 0 ? (
+          <div className="rounded-md border border-dashed border-border p-8 text-center text-xs text-muted-foreground">
+            No courses match &ldquo;{courseSearchQuery}&rdquo;
+          </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {courses.map((course) => (
+            {filteredCourses.map((course) => (
               <div
                 key={course.id}
                 className="group relative rounded-md border border-border bg-card p-5 transition-colors hover:border-neutral-400 dark:hover:border-neutral-600 flex flex-col justify-between"
@@ -343,14 +380,25 @@ export default function SemesterDetailPage() {
                     </span>
                   </div>
 
-                  <Link
-                    href={`/app/semesters/${semester.id}/courses/${course.id}`}
-                    className="flex items-center space-x-1 font-medium text-foreground hover:underline underline-offset-4 group-hover:translate-x-0.5 transition-transform"
-                  >
-                    <Network className="h-3.5 w-3.5 mr-1" />
-                    <span>Open Neural Graph</span>
-                    <ArrowRight className="h-3.5 w-3.5 ml-1" />
-                  </Link>
+                  <div className="flex items-center space-x-2">
+                    <Link
+                      href={`/app/calendar?semesterId=${semester.id}&courseId=${course.id}`}
+                      className="inline-flex items-center space-x-1 px-2 py-1 rounded-sm border border-border bg-background text-[11px] text-muted-foreground hover:text-foreground hover:border-neutral-400 transition-colors"
+                      title="View course schedule"
+                    >
+                      <Calendar className="h-3 w-3" />
+                      <span className="hidden sm:inline">Schedule</span>
+                    </Link>
+
+                    <Link
+                      href={`/app/semesters/${semester.id}/courses/${course.id}`}
+                      className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-sm bg-primary text-primary-foreground font-medium text-[11px] hover:opacity-90 transition-opacity"
+                    >
+                      <Network className="h-3 w-3 mr-0.5" />
+                      <span>Neural Graph</span>
+                      <ArrowRight className="h-3 w-3 ml-0.5" />
+                    </Link>
+                  </div>
                 </div>
               </div>
             ))}

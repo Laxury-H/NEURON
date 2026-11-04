@@ -244,6 +244,9 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
                         </button>
                         <Folder className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                         <span className="truncate">{semester.name}</span>
+                        {semester.is_active && (
+                          <span className="h-1.5 w-1.5 rounded-full bg-foreground shrink-0" title="Active Semester" />
+                        )}
                       </div>
                       <span className="text-[10px] font-mono text-muted-foreground">
                         {semester.courses?.length ?? 0}

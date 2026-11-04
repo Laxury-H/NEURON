@@ -5,6 +5,7 @@ import {
   ReactFlow,
   Background,
   Controls,
+  MiniMap,
   useNodesState,
   useEdgesState,
   Node,
@@ -29,6 +30,12 @@ import { DocumentDetailPanel } from "./document-detail-panel";
 import { AddPersonDialog } from "./add-person-dialog";
 import { UploadDocumentDialog } from "./upload-document-dialog";
 import { CourseDialog } from "@/components/courses/course-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +46,11 @@ import {
   UserPlus,
   FileUp,
   Search,
+  UnfoldHorizontal,
+  FoldHorizontal,
+  Map,
+  HelpCircle,
+  Keyboard,
 } from "lucide-react";
 
 interface CourseGraphCanvasProps {
@@ -67,6 +79,8 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
   // Expansion state
   const [expandRelationships, setExpandRelationships] = useState<boolean>(false);
   const [expandFiles, setExpandFiles] = useState<boolean>(false);
+  const [showMiniMap, setShowMiniMap] = useState<boolean>(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState<boolean>(false);
 
   // Inspector Panel State
   const [selectedCourse, setSelectedCourse] = useState<boolean>(false);
@@ -377,7 +391,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
   );
 
   // Reset Layout to balanced structure
-  const handleResetLayout = () => {
+  const handleResetLayout = useCallback(() => {
     const defaultPositions: Record<string, { x: number; y: number }> = {
       course: { x: 380, y: 220 },
       relationships: { x: 80, y: 140 },
@@ -404,7 +418,45 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
 
     fitView({ duration: 500 });
     toast.success("Graph layout reset");
-  };
+  }, [courseId, people, documents, fitView]);
+
+  // Keyboard Shortcuts for Canvas Navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement)?.isContentEditable
+      ) {
+        return;
+      }
+      if (e.key === "f" || e.key === "F") {
+        e.preventDefault();
+        fitView({ duration: 400 });
+      } else if (e.key === "r" || e.key === "R") {
+        e.preventDefault();
+        handleResetLayout();
+      } else if (e.key === "m" || e.key === "M") {
+        e.preventDefault();
+        setShowMiniMap((prev) => !prev);
+      } else if (e.key === "e" || e.key === "E") {
+        e.preventDefault();
+        const nextState = !(expandRelationships && expandFiles);
+        setExpandRelationships(nextState);
+        setExpandFiles(nextState);
+      } else if (e.key === "?") {
+        e.preventDefault();
+        setShortcutsOpen((prev) => !prev);
+      } else if (e.key === "Escape") {
+        setSelectedCourse(false);
+        setSelectedPerson(null);
+        setSelectedDocument(null);
+        setShortcutsOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [fitView, handleResetLayout, expandRelationships, expandFiles]);
 
   // Node CRUD & Relationship Handlers
   const handleAddNewPerson = async (data: any) => {
@@ -617,11 +669,35 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         </Button>
 
         <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs"
+          onClick={() => {
+            const nextState = !(expandRelationships && expandFiles);
+            setExpandRelationships(nextState);
+            setExpandFiles(nextState);
+          }}
+          title={expandRelationships && expandFiles ? "Collapse clusters (E)" : "Expand all clusters (E)"}
+        >
+          {expandRelationships && expandFiles ? (
+            <>
+              <FoldHorizontal className="h-3 w-3 mr-1" />
+              <span className="hidden sm:inline">Collapse</span>
+            </>
+          ) : (
+            <>
+              <UnfoldHorizontal className="h-3 w-3 mr-1" />
+              <span className="hidden sm:inline">Expand All</span>
+            </>
+          )}
+        </Button>
+
+        <Button
           variant="ghost"
           size="iconSm"
           className="h-7 w-7"
           onClick={() => fitView({ duration: 400 })}
-          title="Fit view to screen"
+          title="Fit view to screen (F)"
         >
           <Maximize2 className="h-3.5 w-3.5" />
         </Button>
@@ -631,9 +707,29 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
           size="iconSm"
           className="h-7 w-7"
           onClick={handleResetLayout}
-          title="Reset neural layout"
+          title="Reset neural layout (R)"
         >
           <RotateCcw className="h-3.5 w-3.5" />
+        </Button>
+
+        <Button
+          variant={showMiniMap ? "secondary" : "ghost"}
+          size="iconSm"
+          className="h-7 w-7"
+          onClick={() => setShowMiniMap((prev) => !prev)}
+          title="Toggle MiniMap (M)"
+        >
+          <Map className="h-3.5 w-3.5" />
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="iconSm"
+          className="h-7 w-7"
+          onClick={() => setShortcutsOpen(true)}
+          title="Keyboard Shortcuts (?)"
+        >
+          <HelpCircle className="h-3.5 w-3.5" />
         </Button>
       </div>
 
@@ -657,6 +753,15 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
       >
         <Background gap={24} size={1} color="#D4D4D4" className="dark:!opacity-20" />
         <Controls showInteractive={false} position="bottom-left" />
+        {showMiniMap && (
+          <MiniMap
+            nodeStrokeColor="#737373"
+            nodeColor="#171717"
+            nodeBorderRadius={3}
+            maskColor="rgba(0, 0, 0, 0.45)"
+            className="!bottom-4 !right-4 !bg-card/90 !border !border-border !rounded-md !shadow-md backdrop-blur-sm"
+          />
+        )}
       </ReactFlow>
 
       {/* Inspector Detail Panels */}
@@ -719,6 +824,62 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         course={course}
         onSave={handleUpdateCourse}
       />
+
+      {/* Bottom Status Pill */}
+      <div className="absolute bottom-4 right-4 z-10 hidden sm:flex items-center space-x-2 px-2.5 py-1 rounded-full border border-border bg-card/85 backdrop-blur-sm text-[10px] font-mono text-muted-foreground shadow-sm pointer-events-none">
+        <span className="h-1.5 w-1.5 rounded-full bg-foreground animate-pulse" />
+        <span>{people.length} People</span>
+        <span>•</span>
+        <span>{documents.length} Files</span>
+        <span>•</span>
+        <span>Auto-saved</span>
+      </div>
+
+      {/* Keyboard Shortcuts Dialog */}
+      <Dialog open={shortcutsOpen} onOpenChange={setShortcutsOpen}>
+        <DialogContent className="sm:max-w-md border border-border p-4">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-mono flex items-center space-x-2">
+              <Keyboard className="h-4 w-4" />
+              <span>Canvas Shortcuts & Gestures</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2 text-xs">
+            <div className="flex items-center justify-between py-1 border-b border-border/50">
+              <span className="text-muted-foreground">Pan Canvas</span>
+              <kbd className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded border border-border">Space + Drag / Scroll</kbd>
+            </div>
+            <div className="flex items-center justify-between py-1 border-b border-border/50">
+              <span className="text-muted-foreground">Zoom In / Out</span>
+              <kbd className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded border border-border">Pinch / Ctrl + Scroll</kbd>
+            </div>
+            <div className="flex items-center justify-between py-1 border-b border-border/50">
+              <span className="text-muted-foreground">Fit View to Screen</span>
+              <kbd className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded border border-border">F</kbd>
+            </div>
+            <div className="flex items-center justify-between py-1 border-b border-border/50">
+              <span className="text-muted-foreground">Reset Layout Coordinates</span>
+              <kbd className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded border border-border">R</kbd>
+            </div>
+            <div className="flex items-center justify-between py-1 border-b border-border/50">
+              <span className="text-muted-foreground">Toggle Expand / Collapse All</span>
+              <kbd className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded border border-border">E</kbd>
+            </div>
+            <div className="flex items-center justify-between py-1 border-b border-border/50">
+              <span className="text-muted-foreground">Toggle MiniMap</span>
+              <kbd className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded border border-border">M</kbd>
+            </div>
+            <div className="flex items-center justify-between py-1 border-b border-border/50">
+              <span className="text-muted-foreground">Global Spotlight Search</span>
+              <kbd className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded border border-border">⌘K / Ctrl+K</kbd>
+            </div>
+            <div className="flex items-center justify-between py-1">
+              <span className="text-muted-foreground">Close Active Panel</span>
+              <kbd className="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded border border-border">ESC</kbd>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
