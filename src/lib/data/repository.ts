@@ -169,6 +169,7 @@ function saveStore(state: LocalStoreState): void {
   if (typeof window !== 'undefined') {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      window.dispatchEvent(new Event('neuron_data_changed'));
     } catch (err) {
       console.error('Failed to save to localStorage:', err);
     }

@@ -101,6 +101,20 @@ function InnerCurriculumGraph() {
 
   useEffect(() => {
     loadCurriculumData();
+
+    const handleDataChange = () => {
+      loadCurriculumData();
+    };
+
+    window.addEventListener("neuron_data_changed", handleDataChange);
+    window.addEventListener("storage", handleDataChange);
+    window.addEventListener("focus", handleDataChange);
+
+    return () => {
+      window.removeEventListener("neuron_data_changed", handleDataChange);
+      window.removeEventListener("storage", handleDataChange);
+      window.removeEventListener("focus", handleDataChange);
+    };
   }, [loadCurriculumData]);
 
   // Construct Macroscopic Topology:
@@ -427,18 +441,23 @@ function InnerCurriculumGraph() {
           >
             All
           </Button>
-          {semesters.map((sem, idx) => (
-            <Button
-              key={sem.id}
-              variant={timelineIndex === idx ? "default" : "outline"}
-              size="sm"
-              className="h-6 text-[10px] px-2"
-              onClick={() => setTimelineIndex(idx)}
-              title={sem.name}
-            >
-              Sem {idx + 1}
-            </Button>
-          ))}
+          {semesters.map((sem, idx) => {
+            const shortLabel = sem.name
+              .replace(/^Học kỳ\s*/i, "Kỳ ")
+              .replace(/^Semester\s*/i, "Sem ");
+            return (
+              <Button
+                key={sem.id}
+                variant={timelineIndex === idx ? "default" : "outline"}
+                size="sm"
+                className="h-6 text-[10px] px-2 font-mono"
+                onClick={() => setTimelineIndex(idx)}
+                title={`${sem.name} (${sem.academic_year || ""})`}
+              >
+                {shortLabel.length > 12 ? `Sem ${idx + 1}` : shortLabel}
+              </Button>
+            );
+          })}
         </div>
 
         {/* Camera Controls */}

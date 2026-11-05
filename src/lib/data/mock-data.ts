@@ -2009,7 +2009,7 @@ export const INITIAL_GRAPH_LAYOUTS: Record<string, CourseGraphLayout> = {
       'concept-conc-modbus-profinet': { x: 361, y: 150 },
       'concept-conc-industrial-ethernet': { x: 621, y: 150 },
     },
-    viewport: { x: 80, y: 40, zoom: 0.85 },
+    viewport: { x: 150, y: 60, zoom: 0.78 },
     updated_at: new Date('2026-09-01T00:00:00Z').toISOString(),
   },
   'c-ee3288': {
@@ -2028,7 +2028,7 @@ export const INITIAL_GRAPH_LAYOUTS: Record<string, CourseGraphLayout> = {
       'concept-conc-stability-nyquist': { x: 491, y: 140 },
       'concept-conc-state-feedback': { x: 751, y: 160 },
     },
-    viewport: { x: 80, y: 40, zoom: 0.85 },
+    viewport: { x: 150, y: 60, zoom: 0.78 },
     updated_at: new Date('2026-09-01T00:00:00Z').toISOString(),
   },
   'c-ee3101': {
@@ -2045,7 +2045,7 @@ export const INITIAL_GRAPH_LAYOUTS: Record<string, CourseGraphLayout> = {
       'concept-conc-pv-mppt': { x: 361, y: 150 },
       'concept-conc-microgrid-integration': { x: 621, y: 150 },
     },
-    viewport: { x: 80, y: 40, zoom: 0.85 },
+    viewport: { x: 150, y: 60, zoom: 0.78 },
     updated_at: new Date('2026-09-01T00:00:00Z').toISOString(),
   },
   'c-ee4010': {
@@ -2064,7 +2064,7 @@ export const INITIAL_GRAPH_LAYOUTS: Record<string, CourseGraphLayout> = {
       'concept-conc-power-flow': { x: 491, y: 140 },
       'concept-conc-grid-stability': { x: 751, y: 160 },
     },
-    viewport: { x: 80, y: 40, zoom: 0.85 },
+    viewport: { x: 150, y: 60, zoom: 0.78 },
     updated_at: new Date('2026-09-01T00:00:00Z').toISOString(),
   },
   'c-ee3140': {
@@ -2083,7 +2083,7 @@ export const INITIAL_GRAPH_LAYOUTS: Record<string, CourseGraphLayout> = {
       'concept-conc-induction-machines': { x: 491, y: 140 },
       'concept-conc-synchronous-machines': { x: 751, y: 160 },
     },
-    viewport: { x: 80, y: 40, zoom: 0.85 },
+    viewport: { x: 150, y: 60, zoom: 0.78 },
     updated_at: new Date('2026-09-01T00:00:00Z').toISOString(),
   },
   'c-ee3410': {
@@ -2102,7 +2102,7 @@ export const INITIAL_GRAPH_LAYOUTS: Record<string, CourseGraphLayout> = {
       'concept-conc-pwm-inverters': { x: 491, y: 140 },
       'concept-conc-power-semiconductors': { x: 751, y: 160 },
     },
-    viewport: { x: 80, y: 40, zoom: 0.85 },
+    viewport: { x: 150, y: 60, zoom: 0.78 },
     updated_at: new Date('2026-09-01T00:00:00Z').toISOString(),
   },
   'c-ee4020e': {
@@ -2121,7 +2121,7 @@ export const INITIAL_GRAPH_LAYOUTS: Record<string, CourseGraphLayout> = {
       'concept-conc-z-bus': { x: 491, y: 140 },
       'concept-conc-iec60909': { x: 751, y: 160 },
     },
-    viewport: { x: 80, y: 40, zoom: 0.85 },
+    viewport: { x: 150, y: 60, zoom: 0.78 },
     updated_at: new Date('2026-09-01T00:00:00Z').toISOString(),
   },
   'c-ssh1131': {
@@ -2139,7 +2139,7 @@ export const INITIAL_GRAPH_LAYOUTS: Record<string, CourseGraphLayout> = {
       'concept-conc-scientific-socialism': { x: 361, y: 150 },
       'concept-conc-socialist-democracy': { x: 621, y: 150 },
     },
-    viewport: { x: 80, y: 40, zoom: 0.85 },
+    viewport: { x: 150, y: 60, zoom: 0.78 },
     updated_at: new Date('2026-09-01T00:00:00Z').toISOString(),
   },
   'c-ee3810': {
@@ -2158,7 +2158,7 @@ export const INITIAL_GRAPH_LAYOUTS: Record<string, CourseGraphLayout> = {
       'concept-conc-grid-forming': { x: 491, y: 140 },
       'concept-conc-pwm-inverters': { x: 751, y: 160 },
     },
-    viewport: { x: 80, y: 40, zoom: 0.85 },
+    viewport: { x: 150, y: 60, zoom: 0.78 },
     updated_at: new Date('2026-09-01T00:00:00Z').toISOString(),
   },
 };

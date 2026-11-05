@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { DocumentPreviewDialog } from "./document-preview-dialog";
+import { KatexMath } from "@/components/ui/katex-math";
 import { toast } from "sonner";
 
 interface DocumentDetailPanelProps {
@@ -438,8 +439,8 @@ export function DocumentDetailPanel({
                             <div className="font-semibold text-xs text-foreground font-sans">
                               {name}
                             </div>
-                            <div className="p-1.5 rounded border border-border bg-background font-mono text-[11px] overflow-x-auto text-foreground whitespace-nowrap">
-                              <code>{latex}</code>
+                            <div className="p-2 rounded border border-border bg-background overflow-x-auto text-foreground">
+                              <KatexMath math={latex} displayMode={true} className="text-xs" />
                             </div>
                             {desc && (
                               <p className="text-[10px] text-muted-foreground leading-tight">

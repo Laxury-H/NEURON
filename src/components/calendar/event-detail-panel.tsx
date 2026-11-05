@@ -185,8 +185,8 @@ export function EventDetailPanel({
                 <p className="text-[11px] font-mono mt-1 flex items-center text-muted-foreground">
                   <Clock className="h-3 w-3 mr-1 text-foreground" />
                   <span>
-                    {startDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} –{" "}
-                    {endDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {startDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })} –{" "}
+                    {endDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}
                   </span>
                 </p>
               ) : (

@@ -162,7 +162,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         if (data.layout?.positions) {
           savedPositionsRef.current = data.layout.positions;
         }
-        if (data.layout?.viewport) {
+        if (data.layout?.viewport && !(data.layout.viewport.x === 80 && data.layout.viewport.zoom === 0.85)) {
           hasSavedViewportRef.current = true;
           // Synchronously restore saved viewport with zero duration to eliminate camera leap
           setViewport(data.layout.viewport, { duration: 0 });
@@ -596,7 +596,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
       }
       if (e.key === "f" || e.key === "F") {
         e.preventDefault();
-        fitView({ duration: 400 });
+        fitView({ padding: 0.25, duration: 400 });
       } else if (e.key === "r" || e.key === "R") {
         e.preventDefault();
         handleResetLayout();
@@ -916,9 +916,10 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
           onClick={() => setAddPersonOpen(true)}
           title="Connect Person"
         >
-          <UserPlus className="h-3 w-3 sm:mr-1 shrink-0" />
-          <span className="hidden sm:inline">Connect Person</span>
-          <span className="sm:hidden text-[11px]">Person</span>
+          <UserPlus className="h-3 w-3 mr-1 shrink-0" />
+          <span>
+            <span className="hidden sm:inline">Connect </span>Person
+          </span>
         </Button>
 
         <Button
@@ -928,9 +929,10 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
           onClick={() => setUploadDocOpen(true)}
           title="Attach File"
         >
-          <FileUp className="h-3 w-3 sm:mr-1 shrink-0" />
-          <span className="hidden sm:inline">Attach File</span>
-          <span className="sm:hidden text-[11px]">File</span>
+          <FileUp className="h-3 w-3 mr-1 shrink-0" />
+          <span>
+            <span className="hidden sm:inline">Attach </span>File
+          </span>
         </Button>
 
         <Button
@@ -961,7 +963,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
           variant="ghost"
           size="iconSm"
           className="h-7 w-7 shrink-0"
-          onClick={() => fitView({ duration: 400 })}
+          onClick={() => fitView({ padding: 0.25, duration: 400 })}
           title="Fit view to screen (F)"
         >
           <Maximize2 className="h-3.5 w-3.5" />

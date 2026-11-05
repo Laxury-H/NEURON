@@ -71,6 +71,19 @@ export function CalendarEventDialog({
   const [deadlineStatus, setDeadlineStatus] = useState<DeadlineStatus>("pending");
   const [loading, setLoading] = useState(false);
 
+  const toLocalDateString = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const toLocalTimeString = (d: Date) => {
+    const hours = String(d.getHours()).padStart(2, "0");
+    const minutes = String(d.getMinutes()).padStart(2, "0");
+    return `${hours}:${minutes}`;
+  };
+
   useEffect(() => {
     if (event) {
       setTitle(event.title);
@@ -78,10 +91,10 @@ export function CalendarEventDialog({
       setCourseId(event.course_id || "none");
       const s = new Date(event.start_at);
       const e = new Date(event.end_at);
-      setStartDate(s.toISOString().split("T")[0]);
-      setStartTime(s.toTimeString().slice(0, 5));
-      setEndDate(e.toISOString().split("T")[0]);
-      setEndTime(e.toTimeString().slice(0, 5));
+      setStartDate(toLocalDateString(s));
+      setStartTime(toLocalTimeString(s));
+      setEndDate(toLocalDateString(e));
+      setEndTime(toLocalTimeString(e));
       setAllDay(event.all_day);
       setLocation(event.location || "");
       setDescription(event.description || "");
@@ -94,7 +107,7 @@ export function CalendarEventDialog({
       setDeadlineStatus(event.deadline_status || "pending");
     } else {
       const defaultDate = initialDate ? new Date(initialDate) : new Date();
-      const dateStr = defaultDate.toISOString().split("T")[0];
+      const dateStr = toLocalDateString(defaultDate);
       setTitle("");
       setEventType("CLASS");
       setCourseId(initialCourseId || "none");

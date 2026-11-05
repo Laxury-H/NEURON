@@ -140,8 +140,10 @@ export default function CourseGraphPage() {
         <div className="flex items-center space-x-1.5 shrink-0">
           <Link href={`/app/calendar?semesterId=${semesterId}&courseId=${course.id}`}>
             <Button variant="outline" size="sm" className="h-7 text-xs px-2.5 shrink-0">
-              <Calendar className="h-3 w-3 sm:mr-1 text-muted-foreground" />
-              <span className="hidden sm:inline">Course </span>Schedule
+              <Calendar className="h-3 w-3 mr-1.5 text-muted-foreground" />
+              <span>
+                <span className="hidden sm:inline">Course </span>Schedule
+              </span>
             </Button>
           </Link>
         </div>

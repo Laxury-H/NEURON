@@ -751,7 +751,18 @@ export function SemesterCalendar({
           dateClick={handleDateClick}
           eventClick={handleEventClick}
           height="100%"
-          timeZone="Asia/Ho_Chi_Minh"
+          timeZone="local"
+          eventTimeFormat={{
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+            meridiem: false,
+          }}
+          slotLabelFormat={{
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          }}
           dayMaxEvents={3}
           allDaySlot={true}
           slotMinTime="06:00:00"
@@ -820,11 +831,13 @@ export function SemesterCalendar({
                           {new Date(c.overlapStart).toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",
+                            hour12: false,
                           })}{" "}
                           –{" "}
                           {new Date(c.overlapEnd).toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",
+                            hour12: false,
                           })}
                         </span>
                       </div>
