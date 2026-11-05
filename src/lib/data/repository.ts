@@ -34,13 +34,14 @@ import {
 import { createClient, isSupabaseConfigured } from '../supabase/client.ts';
 import { BlobStorage } from './blob-storage.ts';
 
-const STORAGE_KEY = 'neuron_store_v2026_1_pure_real';
+const STORAGE_KEY = 'neuron_store_v2026_1_pure_real_v3';
 const LEGACY_STORAGE_KEYS = [
   'neuron_store_v1',
   'neuron_store_v2026_1',
   'neuron_store_v2026_1_real_docs',
   'neuron_store_v2026_1_unified',
   'neuron_store_v2026_1_balanced',
+  'neuron_store_v2026_1_pure_real',
 ];
 
 interface LocalStoreState {
