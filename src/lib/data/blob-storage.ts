@@ -87,4 +87,39 @@ export class BlobStorage {
       tx.onerror = () => reject(tx.error);
     });
   }
+
+  static async getAllBlobs(): Promise<Map<string, BlobData>> {
+    const map = new Map<string, BlobData>(this.memoryFallback);
+    if (!this.isBrowser()) return map;
+    const db = await this.getDb();
+    if (!db) return map;
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.openCursor();
+      req.onsuccess = () => {
+        const cursor = req.result;
+        if (cursor) {
+          map.set(cursor.key as string, cursor.value as BlobData);
+          cursor.continue();
+        } else {
+          resolve(map);
+        }
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  static async clear(): Promise<void> {
+    this.memoryFallback.clear();
+    if (!this.isBrowser()) return;
+    const db = await this.getDb();
+    if (!db) return;
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
 }

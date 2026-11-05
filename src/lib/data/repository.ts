@@ -13,6 +13,9 @@ import type {
   EventType,
   Concept,
   CourseConcept,
+  CoursePrerequisite,
+  DocumentSummary,
+  SyncOutboxItem,
 } from '../../types/database.ts';
 import {
   INITIAL_USER_ID,
@@ -26,6 +29,7 @@ import {
   INITIAL_COURSE_CONCEPTS,
   INITIAL_EVENTS,
   INITIAL_GRAPH_LAYOUTS,
+  INITIAL_COURSE_PREREQUISITES,
 } from './mock-data.ts';
 import { createClient, isSupabaseConfigured } from '../supabase/client.ts';
 import { BlobStorage } from './blob-storage.ts';
@@ -49,8 +53,12 @@ interface LocalStoreState {
   course_documents: CourseDocument[];
   concepts: Concept[];
   course_concepts: CourseConcept[];
+  document_summaries: DocumentSummary[];
+  course_prerequisites: CoursePrerequisite[];
+  sync_outbox: SyncOutboxItem[];
   events: CalendarEvent[];
   layouts: Record<string, CourseGraphLayout>;
+  revision_counter?: number;
 }
 
 function getInitialStore(): LocalStoreState {
@@ -64,8 +72,12 @@ function getInitialStore(): LocalStoreState {
     course_documents: JSON.parse(JSON.stringify(INITIAL_COURSE_DOCUMENTS)),
     concepts: JSON.parse(JSON.stringify(INITIAL_CONCEPTS)),
     course_concepts: JSON.parse(JSON.stringify(INITIAL_COURSE_CONCEPTS)),
+    document_summaries: [],
+    course_prerequisites: JSON.parse(JSON.stringify(INITIAL_COURSE_PREREQUISITES)),
+    sync_outbox: [],
     events: JSON.parse(JSON.stringify(INITIAL_EVENTS)),
     layouts: JSON.parse(JSON.stringify(INITIAL_GRAPH_LAYOUTS)),
+    revision_counter: 1,
   };
 }
 
@@ -110,10 +122,10 @@ function loadStore(): LocalStoreState {
     );
 
     if (
-      !parsed.courses ||
-      parsed.courses.length < 9 ||
-      !parsed.courses.some((c: Course) => c.course_code === 'EE3600E') ||
-      !parsed.concepts ||
+      !parsed.semesters ||
+      !Array.isArray(parsed.semesters) ||
+      parsed.semesters.length === 0 ||
+      !Array.isArray(parsed.courses) ||
       hasLegacySemesters ||
       hasLegacyDocCollision ||
       hasLegacyMockCourse ||
@@ -124,6 +136,26 @@ function loadStore(): LocalStoreState {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
       return initial;
     }
+
+    if (!Array.isArray(parsed.concepts)) {
+      parsed.concepts = [];
+    }
+    if (!Array.isArray(parsed.course_concepts)) {
+      parsed.course_concepts = [];
+    }
+    if (!Array.isArray(parsed.document_summaries)) {
+      parsed.document_summaries = [];
+    }
+    if (!Array.isArray(parsed.course_prerequisites)) {
+      parsed.course_prerequisites = JSON.parse(JSON.stringify(INITIAL_COURSE_PREREQUISITES));
+    }
+    if (!Array.isArray(parsed.sync_outbox)) {
+      parsed.sync_outbox = [];
+    }
+    if (typeof parsed.revision_counter !== 'number') {
+      parsed.revision_counter = 1;
+    }
+
     return parsed;
   } catch (err) {
     console.error('Failed to load local store:', err);
@@ -140,6 +172,36 @@ function saveStore(state: LocalStoreState): void {
       console.error('Failed to save to localStorage:', err);
     }
   }
+}
+
+function isUuid(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+}
+
+function queueMutation(
+  store: LocalStoreState,
+  entity: string,
+  action: 'INSERT' | 'UPDATE' | 'DELETE',
+  recordId: string,
+  payload: Record<string, any>
+): SyncOutboxItem {
+  if (!store.sync_outbox) store.sync_outbox = [];
+  store.revision_counter = (store.revision_counter || 0) + 1;
+  const item: SyncOutboxItem = {
+    id: crypto.randomUUID(),
+    user_id: store.userId,
+    entity,
+    action,
+    record_id: recordId,
+    payload: { ...payload },
+    client_timestamp: new Date().toISOString(),
+    status: 'PENDING',
+    retry_count: 0,
+    last_error: null,
+    revision: store.revision_counter,
+  };
+  store.sync_outbox.push(item);
+  return item;
 }
 
 /* ==========================================================================
@@ -201,7 +263,7 @@ export const DataRepository = {
     is_active?: boolean;
   }): Promise<Semester> {
     const store = loadStore();
-    const newId = `sem-${Date.now()}`;
+    const newId = crypto.randomUUID();
     const newSemester: Semester = {
       id: newId,
       user_id: store.userId,
@@ -224,6 +286,7 @@ export const DataRepository = {
           const { data, error } = await supabase
             .from('semesters')
             .insert({
+              id: newSemester.id,
               user_id: authData.user.id,
               name: params.name,
               academic_year: params.academic_year,
@@ -243,6 +306,7 @@ export const DataRepository = {
       store.semesters.forEach((s) => (s.is_active = false));
     }
     store.semesters.push(newSemester);
+    queueMutation(store, 'semesters', 'INSERT', newSemester.id, newSemester);
     saveStore(store);
     return newSemester;
   },
@@ -251,7 +315,7 @@ export const DataRepository = {
     id: string,
     params: Partial<Omit<Semester, 'id' | 'user_id' | 'created_at' | 'updated_at'>>
   ): Promise<Semester | null> {
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && isUuid(id)) {
       const supabase = createClient();
       if (supabase) {
         const { data, error } = await supabase
@@ -277,12 +341,13 @@ export const DataRepository = {
       updated_at: new Date().toISOString(),
     };
     store.semesters[idx] = updated;
+    queueMutation(store, 'semesters', 'UPDATE', id, updated);
     saveStore(store);
     return updated;
   },
 
   async deleteSemester(id: string): Promise<boolean> {
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && isUuid(id)) {
       const supabase = createClient();
       if (supabase) {
         const { error } = await supabase.from('semesters').delete().eq('id', id);
@@ -303,6 +368,7 @@ export const DataRepository = {
       (cd) => !courseIds.includes(cd.course_id)
     );
     store.events = store.events.filter((e) => e.semester_id !== id);
+    queueMutation(store, 'semesters', 'DELETE', id, { id });
     saveStore(store);
     return true;
   },
@@ -335,7 +401,7 @@ export const DataRepository = {
   },
 
   async getCourse(id: string): Promise<Course | null> {
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && isUuid(id)) {
       const supabase = createClient();
       if (supabase) {
         const { data, error } = await supabase
@@ -347,7 +413,7 @@ export const DataRepository = {
       }
     }
     const store = loadStore();
-    const course = store.courses.find((c) => c.id === id);
+    const course = store.courses.find((c) => c.id === id || (id === 'c-ee4020' && c.id === 'c-ee4020e') || (id === 'c-ee4020e' && c.id === 'c-ee4020'));
     if (!course) return null;
     const people_count = store.course_people.filter((cp) => cp.course_id === course.id).length;
     const documents_count = store.course_documents.filter((cd) => cd.course_id === course.id).length;
@@ -363,7 +429,7 @@ export const DataRepository = {
     description?: string | null;
   }): Promise<Course> {
     const store = loadStore();
-    const newId = `c-${Date.now()}`;
+    const newId = crypto.randomUUID();
     const newCourse: Course = {
       id: newId,
       user_id: store.userId,
@@ -385,6 +451,7 @@ export const DataRepository = {
           const { data, error } = await supabase
             .from('courses')
             .insert({
+              id: newCourse.id,
               user_id: authData.user.id,
               semester_id: params.semester_id,
               course_code: newCourse.course_code,
@@ -401,6 +468,7 @@ export const DataRepository = {
     }
 
     store.courses.push(newCourse);
+    queueMutation(store, 'courses', 'INSERT', newCourse.id, newCourse);
     saveStore(store);
     return newCourse;
   },
@@ -409,7 +477,7 @@ export const DataRepository = {
     id: string,
     params: Partial<Omit<Course, 'id' | 'user_id' | 'created_at' | 'updated_at'>>
   ): Promise<Course | null> {
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && isUuid(id)) {
       const supabase = createClient();
       if (supabase) {
         const { data, error } = await supabase
@@ -422,7 +490,7 @@ export const DataRepository = {
       }
     }
     const store = loadStore();
-    const idx = store.courses.findIndex((c) => c.id === id);
+    const idx = store.courses.findIndex((c) => c.id === id || (id === 'c-ee4020' && c.id === 'c-ee4020e'));
     if (idx === -1) return null;
     const updated = {
       ...store.courses[idx],
@@ -431,12 +499,13 @@ export const DataRepository = {
       updated_at: new Date().toISOString(),
     };
     store.courses[idx] = updated;
+    queueMutation(store, 'courses', 'UPDATE', id, updated);
     saveStore(store);
     return updated;
   },
 
   async deleteCourse(id: string): Promise<boolean> {
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && isUuid(id)) {
       const supabase = createClient();
       if (supabase) {
         const { error } = await supabase.from('courses').delete().eq('id', id);
@@ -444,12 +513,14 @@ export const DataRepository = {
       }
     }
     const store = loadStore();
-    store.courses = store.courses.filter((c) => c.id !== id);
+    store.courses = store.courses.filter((c) => c.id !== id && c.id !== (id === 'c-ee4020' ? 'c-ee4020e' : ''));
     store.course_people = store.course_people.filter((cp) => cp.course_id !== id);
     store.course_documents = store.course_documents.filter((cd) => cd.course_id !== id);
     store.course_concepts = (store.course_concepts || []).filter((cc) => cc.course_id !== id);
+    store.course_prerequisites = (store.course_prerequisites || []).filter((cp) => cp.course_id !== id && cp.prerequisite_course_id !== id);
     store.events = store.events.map((e) => (e.course_id === id ? { ...e, course_id: null } : e));
     delete store.layouts[id];
+    queueMutation(store, 'courses', 'DELETE', id, { id });
     saveStore(store);
     return true;
   },
@@ -532,7 +603,13 @@ export const DataRepository = {
     }
 
     const store = loadStore();
-    const coursePeopleLinks = store.course_people.filter((cp) => cp.course_id === courseId);
+    const effectiveCourseId = (courseId === 'c-ee4020' && !store.layouts['c-ee4020'] && store.layouts['c-ee4020e'])
+      ? 'c-ee4020e'
+      : ((courseId === 'c-ee4020e' && !store.layouts['c-ee4020e'] && store.layouts['c-ee4020']) ? 'c-ee4020' : courseId);
+
+    const coursePeopleLinks = store.course_people.filter(
+      (cp) => cp.course_id === courseId || cp.course_id === effectiveCourseId
+    );
     const people: Person[] = [];
     for (const cp of coursePeopleLinks) {
       const person = store.people.find((p) => p.id === cp.person_id);
@@ -558,7 +635,7 @@ export const DataRepository = {
     }
 
     const courseDocLinks = store.course_documents
-      .filter((cd) => cd.course_id === courseId)
+      .filter((cd) => cd.course_id === courseId || cd.course_id === effectiveCourseId)
       .sort((a, b) => a.display_order - b.display_order);
 
     const documents: DocumentItem[] = [];
@@ -582,7 +659,9 @@ export const DataRepository = {
       }
     }
 
-    const courseConceptLinks = (store.course_concepts || []).filter((cc) => cc.course_id === courseId);
+    const courseConceptLinks = (store.course_concepts || []).filter(
+      (cc) => cc.course_id === courseId || cc.course_id === effectiveCourseId
+    );
     const concepts: Concept[] = [];
     for (const cc of courseConceptLinks) {
       const conc = (store.concepts || []).find((c) => c.id === cc.concept_id);
@@ -591,7 +670,7 @@ export const DataRepository = {
       }
     }
 
-    const layout = store.layouts[courseId] || null;
+    const layout = store.layouts[courseId] || store.layouts[effectiveCourseId] || null;
 
     return {
       course,
@@ -632,13 +711,15 @@ export const DataRepository = {
     }
 
     const store = loadStore();
-    store.layouts[courseId] = {
+    const layout: CourseGraphLayout = {
       course_id: courseId,
       user_id: store.userId,
       positions,
       viewport,
       updated_at: new Date().toISOString(),
     };
+    store.layouts[courseId] = layout;
+    queueMutation(store, 'course_graph_layouts', 'UPDATE', courseId, layout);
     saveStore(store);
     return true;
   },
@@ -675,7 +756,7 @@ export const DataRepository = {
   },
 
   async getPerson(id: string): Promise<Person | null> {
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && isUuid(id)) {
       const supabase = createClient();
       if (supabase) {
         const { data: p, error } = await supabase
@@ -723,7 +804,7 @@ export const DataRepository = {
     notes?: string | null;
   }): Promise<Person> {
     const store = loadStore();
-    const newId = `p-${Date.now()}`;
+    const newId = crypto.randomUUID();
     const newPerson: Person = {
       id: newId,
       user_id: store.userId,
@@ -747,7 +828,7 @@ export const DataRepository = {
         if (authData.user) {
           const { data, error } = await supabase
             .from('people')
-            .insert({ ...newPerson, id: undefined, user_id: authData.user.id })
+            .insert({ ...newPerson, user_id: authData.user.id })
             .select()
             .single();
           if (!error && data) return data;
@@ -756,6 +837,7 @@ export const DataRepository = {
     }
 
     store.people.push(newPerson);
+    queueMutation(store, 'people', 'INSERT', newPerson.id, newPerson);
     saveStore(store);
     return newPerson;
   },
@@ -764,7 +846,7 @@ export const DataRepository = {
     id: string,
     params: Partial<Omit<Person, 'id' | 'user_id' | 'created_at' | 'updated_at'>>
   ): Promise<Person | null> {
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && isUuid(id)) {
       const supabase = createClient();
       if (supabase) {
         const { data, error } = await supabase
@@ -785,12 +867,13 @@ export const DataRepository = {
       updated_at: new Date().toISOString(),
     };
     store.people[idx] = updated;
+    queueMutation(store, 'people', 'UPDATE', id, updated);
     saveStore(store);
     return updated;
   },
 
   async deletePerson(id: string): Promise<boolean> {
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && isUuid(id)) {
       const supabase = createClient();
       if (supabase) {
         const { error } = await supabase.from('people').delete().eq('id', id);
@@ -800,6 +883,7 @@ export const DataRepository = {
     const store = loadStore();
     store.people = store.people.filter((p) => p.id !== id);
     store.course_people = store.course_people.filter((cp) => cp.person_id !== id);
+    queueMutation(store, 'people', 'DELETE', id, { id });
     saveStore(store);
     return true;
   },
@@ -824,12 +908,19 @@ export const DataRepository = {
         knowledge_topics: params.knowledge_topics || [],
         context_note: params.context_note?.trim() || null,
       };
+      queueMutation(
+        store,
+        'course_people',
+        'UPDATE',
+        store.course_people[existingIdx].id,
+        store.course_people[existingIdx]
+      );
       saveStore(store);
       return store.course_people[existingIdx];
     }
 
     const newLink: CoursePerson = {
-      id: `cp-${Date.now()}`,
+      id: crypto.randomUUID(),
       user_id: store.userId,
       course_id: params.course_id,
       person_id: params.person_id,
@@ -848,6 +939,7 @@ export const DataRepository = {
             .from('course_people')
             .upsert(
               {
+                id: newLink.id,
                 user_id: authData.user.id,
                 course_id: params.course_id,
                 person_id: params.person_id,
@@ -865,6 +957,7 @@ export const DataRepository = {
     }
 
     store.course_people.push(newLink);
+    queueMutation(store, 'course_people', 'INSERT', newLink.id, newLink);
     saveStore(store);
     return newLink;
   },
@@ -882,9 +975,15 @@ export const DataRepository = {
       }
     }
     const store = loadStore();
+    const removed = store.course_people.find(
+      (cp) => cp.course_id === course_id && cp.person_id === person_id
+    );
     store.course_people = store.course_people.filter(
       (cp) => !(cp.course_id === course_id && cp.person_id === person_id)
     );
+    if (removed) {
+      queueMutation(store, 'course_people', 'DELETE', removed.id, { id: removed.id });
+    }
     saveStore(store);
     return true;
   },
@@ -966,8 +1065,13 @@ export const DataRepository = {
     courseId?: string
   ): Promise<DocumentItem> {
     const store = loadStore();
-    const newDocId = `doc-${Date.now()}`;
+    const newDocId = crypto.randomUUID();
     const storagePath = `documents/${store.userId}/${newDocId}_${params.original_file_name}`;
+
+    // Store binary payload exclusively in IndexedDB (with in-memory fallback for SSR/tests)
+    if (params.file_content_base64) {
+      await BlobStorage.saveBlob(newDocId, params.file_content_base64).catch(() => {});
+    }
 
     const newDoc: DocumentItem = {
       id: newDocId,
@@ -980,7 +1084,7 @@ export const DataRepository = {
       description: params.description?.trim() || null,
       uploaded_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      download_url: params.file_content_base64 || undefined,
+      download_url: `/api/documents/${newDocId}`,
     };
 
     if (isSupabaseConfigured()) {
@@ -991,6 +1095,7 @@ export const DataRepository = {
           const { data, error } = await supabase
             .from('documents')
             .insert({
+              id: newDoc.id,
               user_id: authData.user.id,
               original_file_name: newDoc.original_file_name,
               storage_path: storagePath,
@@ -1013,20 +1118,21 @@ export const DataRepository = {
     }
 
     store.documents.unshift(newDoc);
+    queueMutation(store, 'documents', 'INSERT', newDoc.id, newDoc);
+
     if (courseId) {
-      store.course_documents.push({
-        id: `cd-${Date.now()}`,
+      const newCd: CourseDocument = {
+        id: crypto.randomUUID(),
         user_id: store.userId,
         course_id: courseId,
         document_id: newDoc.id,
         display_order: store.course_documents.filter((cd) => cd.course_id === courseId).length + 1,
         created_at: new Date().toISOString(),
-      });
+      };
+      store.course_documents.push(newCd);
+      queueMutation(store, 'course_documents', 'INSERT', newCd.id, newCd);
     }
     saveStore(store);
-    if (params.file_content_base64) {
-      await BlobStorage.saveBlob(newDoc.id, params.file_content_base64).catch(() => {});
-    }
     return newDoc;
   },
 
@@ -1034,7 +1140,7 @@ export const DataRepository = {
     id: string,
     params: Partial<Pick<DocumentItem, 'original_file_name' | 'category' | 'description'>>
   ): Promise<DocumentItem | null> {
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && isUuid(id)) {
       const supabase = createClient();
       if (supabase) {
         const { data, error } = await supabase
@@ -1055,6 +1161,7 @@ export const DataRepository = {
       updated_at: new Date().toISOString(),
     };
     store.documents[idx] = updated;
+    queueMutation(store, 'documents', 'UPDATE', id, updated);
     saveStore(store);
     return updated;
   },
@@ -1066,6 +1173,15 @@ export const DataRepository = {
     );
     if (exists) return true;
 
+    const newLink: CourseDocument = {
+      id: crypto.randomUUID(),
+      user_id: store.userId,
+      course_id,
+      document_id,
+      display_order: store.course_documents.filter((cd) => cd.course_id === course_id).length + 1,
+      created_at: new Date().toISOString(),
+    };
+
     if (isSupabaseConfigured()) {
       const supabase = createClient();
       if (supabase) {
@@ -1074,24 +1190,19 @@ export const DataRepository = {
           const { error } = await supabase
             .from('course_documents')
             .insert({
+              id: newLink.id,
               user_id: authData.user.id,
               course_id,
               document_id,
-              display_order: 99,
+              display_order: newLink.display_order,
             });
           if (!error) return true;
         }
       }
     }
 
-    store.course_documents.push({
-      id: `cd-${Date.now()}`,
-      user_id: store.userId,
-      course_id,
-      document_id,
-      display_order: store.course_documents.filter((cd) => cd.course_id === course_id).length + 1,
-      created_at: new Date().toISOString(),
-    });
+    store.course_documents.push(newLink);
+    queueMutation(store, 'course_documents', 'INSERT', newLink.id, newLink);
     saveStore(store);
     return true;
   },
@@ -1109,9 +1220,15 @@ export const DataRepository = {
       }
     }
     const store = loadStore();
+    const removed = store.course_documents.find(
+      (cd) => cd.course_id === course_id && cd.document_id === document_id
+    );
     store.course_documents = store.course_documents.filter(
       (cd) => !(cd.course_id === course_id && cd.document_id === document_id)
     );
+    if (removed) {
+      queueMutation(store, 'course_documents', 'DELETE', removed.id, { id: removed.id });
+    }
     saveStore(store);
     return true;
   },
@@ -1123,7 +1240,7 @@ export const DataRepository = {
   },
 
   async deleteDocument(id: string): Promise<boolean> {
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && isUuid(id)) {
       const supabase = createClient();
       if (supabase) {
         const { error } = await supabase.from('documents').delete().eq('id', id);
@@ -1133,6 +1250,7 @@ export const DataRepository = {
     const store = loadStore();
     store.documents = store.documents.filter((d) => d.id !== id);
     store.course_documents = store.course_documents.filter((cd) => cd.document_id !== id);
+    queueMutation(store, 'documents', 'DELETE', id, { id });
     saveStore(store);
     await BlobStorage.deleteBlob(id).catch(() => {});
     return true;
@@ -1160,19 +1278,75 @@ export const DataRepository = {
     return [...(store.concepts || [])].sort((a, b) => a.name.localeCompare(b.name));
   },
 
+  async getConcept(id: string): Promise<Concept | null> {
+    if (isSupabaseConfigured() && isUuid(id)) {
+      const supabase = createClient();
+      if (supabase) {
+        const { data, error } = await supabase.from('concepts').select('*').eq('id', id).maybeSingle();
+        if (!error && data) return data;
+      }
+    }
+    const store = loadStore();
+    return (store.concepts || []).find((c) => c.id === id) || null;
+  },
+
+  async createConcept(data: { name: string; description?: string }): Promise<Concept> {
+    const store = loadStore();
+    const id = crypto.randomUUID();
+    const slug =
+      data.name
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '') || `concept-${Date.now()}`;
+
+    const concept: Concept = {
+      id,
+      user_id: store.userId,
+      name: data.name.trim(),
+      slug,
+      description: data.description?.trim() || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    if (isSupabaseConfigured()) {
+      const supabase = createClient();
+      if (supabase) {
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData.user) {
+          const { data: created, error } = await supabase
+            .from('concepts')
+            .insert({ ...concept, user_id: authData.user.id })
+            .select()
+            .single();
+          if (!error && created) return created;
+        }
+      }
+    }
+
+    store.concepts = [...(store.concepts || []), concept];
+    queueMutation(store, 'concepts', 'INSERT', concept.id, concept);
+    saveStore(store);
+    return concept;
+  },
+
   async getCourseConcepts(courseId: string): Promise<(CourseConcept & { concept?: Concept })[]> {
+    const normCourseId = (courseId === 'c-ee4020' && !loadStore().courses.some(c => c.id === 'c-ee4020')) ? 'c-ee4020e' : courseId;
     if (isSupabaseConfigured()) {
       const supabase = createClient();
       if (supabase) {
         const { data, error } = await supabase
           .from('course_concepts')
           .select('*, concept:concepts(*)')
-          .eq('course_id', courseId);
+          .eq('course_id', normCourseId);
         if (!error && data) return data;
       }
     }
     const store = loadStore();
-    const links = (store.course_concepts || []).filter((cc) => cc.course_id === courseId);
+    const links = (store.course_concepts || []).filter(
+      (cc) => cc.course_id === courseId || cc.course_id === normCourseId
+    );
     return links.map((link) => ({
       ...link,
       concept: (store.concepts || []).find((c) => c.id === link.concept_id),
@@ -1192,7 +1366,7 @@ export const DataRepository = {
     if (existing) return existing;
 
     const newLink: CourseConcept = {
-      id: `cc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      id: crypto.randomUUID(),
       user_id: store.userId,
       course_id: data.course_id,
       concept_id: data.concept_id,
@@ -1200,16 +1374,214 @@ export const DataRepository = {
       source_type: data.source_type ?? 'MANUAL',
       created_at: new Date().toISOString(),
     };
+
+    if (isSupabaseConfigured()) {
+      const supabase = createClient();
+      if (supabase) {
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData.user) {
+          const { data: created, error } = await supabase
+            .from('course_concepts')
+            .upsert(
+              { ...newLink, user_id: authData.user.id },
+              { onConflict: 'course_id,concept_id' }
+            )
+            .select()
+            .single();
+          if (!error && created) return created;
+        }
+      }
+    }
+
     store.course_concepts = [...(store.course_concepts || []), newLink];
+    queueMutation(store, 'course_concepts', 'INSERT', newLink.id, newLink);
     saveStore(store);
     return newLink;
   },
 
   async unlinkConceptFromCourse(courseId: string, conceptId: string): Promise<boolean> {
+    if (isSupabaseConfigured()) {
+      const supabase = createClient();
+      if (supabase) {
+        const { error } = await supabase
+          .from('course_concepts')
+          .delete()
+          .eq('course_id', courseId)
+          .eq('concept_id', conceptId);
+        if (!error) return true;
+      }
+    }
     const store = loadStore();
+    const removed = (store.course_concepts || []).find(
+      (cc) => cc.course_id === courseId && cc.concept_id === conceptId
+    );
     store.course_concepts = (store.course_concepts || []).filter(
       (cc) => !(cc.course_id === courseId && cc.concept_id === conceptId)
     );
+    if (removed) {
+      queueMutation(store, 'course_concepts', 'DELETE', removed.id, { id: removed.id });
+    }
+    saveStore(store);
+    return true;
+  },
+
+  /* ------------------------------------------------------------------------
+     DOCUMENT AI SUMMARIES
+     ------------------------------------------------------------------------ */
+  async getDocumentSummary(documentId: string): Promise<DocumentSummary | null> {
+    if (isSupabaseConfigured() && isUuid(documentId)) {
+      const supabase = createClient();
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('document_summaries')
+          .select('*')
+          .eq('document_id', documentId)
+          .maybeSingle();
+        if (!error && data) return data;
+      }
+    }
+    const store = loadStore();
+    return (store.document_summaries || []).find((s) => s.document_id === documentId) || null;
+  },
+
+  async saveDocumentSummary(summary: DocumentSummary): Promise<DocumentSummary> {
+    const store = loadStore();
+    const finalSummary: DocumentSummary = {
+      ...summary,
+      id: summary.id || crypto.randomUUID(),
+      user_id: summary.user_id || store.userId,
+      generated_at: summary.generated_at || new Date().toISOString(),
+    };
+
+    if (isSupabaseConfigured()) {
+      const supabase = createClient();
+      if (supabase) {
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData.user) {
+          const { data, error } = await supabase
+            .from('document_summaries')
+            .upsert(
+              { ...finalSummary, user_id: authData.user.id },
+              { onConflict: 'user_id,document_id' }
+            )
+            .select()
+            .single();
+          if (!error && data) return data;
+        }
+      }
+    }
+
+    if (!store.document_summaries) store.document_summaries = [];
+    const idx = store.document_summaries.findIndex((s) => s.document_id === finalSummary.document_id);
+    if (idx !== -1) {
+      store.document_summaries[idx] = finalSummary;
+    } else {
+      store.document_summaries.push(finalSummary);
+    }
+    queueMutation(store, 'document_summaries', 'INSERT', finalSummary.id, finalSummary);
+    saveStore(store);
+    return finalSummary;
+  },
+
+  /* ------------------------------------------------------------------------
+     COURSE PREREQUISITES (Academic Curriculum DAG)
+     ------------------------------------------------------------------------ */
+  async getCoursePrerequisites(courseId?: string): Promise<CoursePrerequisite[]> {
+    if (isSupabaseConfigured()) {
+      const supabase = createClient();
+      if (supabase) {
+        let query = supabase.from('course_prerequisites').select('*');
+        if (courseId && isUuid(courseId)) {
+          query = query.eq('course_id', courseId);
+        }
+        const { data, error } = await query;
+        if (!error && data) return data;
+      }
+    }
+    const store = loadStore();
+    const list = store.course_prerequisites || [];
+    if (courseId) {
+      return list.filter(
+        (p) =>
+          p.course_id === courseId ||
+          (courseId === 'c-ee4020' && p.course_id === 'c-ee4020e') ||
+          (courseId === 'c-ee4020e' && p.course_id === 'c-ee4020')
+      );
+    }
+    return list;
+  },
+
+  async addCoursePrerequisite(
+    courseId: string,
+    prerequisiteCourseId: string
+  ): Promise<CoursePrerequisite> {
+    if (courseId === prerequisiteCourseId) {
+      throw new Error('A course cannot be a prerequisite of itself');
+    }
+    const store = loadStore();
+    const existing = (store.course_prerequisites || []).find(
+      (p) => p.course_id === courseId && p.prerequisite_course_id === prerequisiteCourseId
+    );
+    if (existing) return existing;
+
+    const item: CoursePrerequisite = {
+      id: crypto.randomUUID(),
+      user_id: store.userId,
+      course_id: courseId,
+      prerequisite_course_id: prerequisiteCourseId,
+      created_at: new Date().toISOString(),
+    };
+
+    if (isSupabaseConfigured()) {
+      const supabase = createClient();
+      if (supabase) {
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData.user) {
+          const { data, error } = await supabase
+            .from('course_prerequisites')
+            .upsert(
+              { ...item, user_id: authData.user.id },
+              { onConflict: 'course_id,prerequisite_course_id' }
+            )
+            .select()
+            .single();
+          if (!error && data) return data;
+        }
+      }
+    }
+
+    store.course_prerequisites = [...(store.course_prerequisites || []), item];
+    queueMutation(store, 'course_prerequisites', 'INSERT', item.id, item);
+    saveStore(store);
+    return item;
+  },
+
+  async removeCoursePrerequisite(
+    courseId: string,
+    prerequisiteCourseId: string
+  ): Promise<boolean> {
+    const store = loadStore();
+    const existing = (store.course_prerequisites || []).find(
+      (p) => p.course_id === courseId && p.prerequisite_course_id === prerequisiteCourseId
+    );
+
+    if (isSupabaseConfigured() && existing && isUuid(existing.id)) {
+      const supabase = createClient();
+      if (supabase) {
+        const { error } = await supabase
+          .from('course_prerequisites')
+          .delete()
+          .eq('id', existing.id);
+        if (!error) return true;
+      }
+    }
+
+    store.course_prerequisites = (store.course_prerequisites || []).filter(
+      (p) => !(p.course_id === courseId && p.prerequisite_course_id === prerequisiteCourseId)
+    );
+    if (existing) {
+      queueMutation(store, 'course_prerequisites', 'DELETE', existing.id, { id: existing.id });
+    }
     saveStore(store);
     return true;
   },
@@ -1284,7 +1656,7 @@ export const DataRepository = {
       }
     }
 
-    const newId = `ev-${Date.now()}`;
+    const newId = crypto.randomUUID();
     const newEvent: CalendarEvent = {
       id: newId,
       user_id: store.userId,
@@ -1312,7 +1684,7 @@ export const DataRepository = {
         if (authData.user) {
           const { data, error } = await supabase
             .from('events')
-            .insert({ ...newEvent, id: undefined, user_id: authData.user.id })
+            .insert({ ...newEvent, user_id: authData.user.id })
             .select()
             .single();
           if (!error && data) return data;
@@ -1321,6 +1693,7 @@ export const DataRepository = {
     }
 
     store.events.push(newEvent);
+    queueMutation(store, 'events', 'INSERT', newEvent.id, newEvent);
     saveStore(store);
     return newEvent;
   },
@@ -1346,7 +1719,14 @@ export const DataRepository = {
       }
     }
 
-    if (isSupabaseConfigured()) {
+    // Validate start_at <= end_at if both are effective
+    const effectiveStart = params.start_at !== undefined ? params.start_at : store.events[idx].start_at;
+    const effectiveEnd = params.end_at !== undefined ? params.end_at : store.events[idx].end_at;
+    if (effectiveStart && effectiveEnd && new Date(effectiveStart).getTime() > new Date(effectiveEnd).getTime()) {
+      throw new Error('Event start_at cannot be after end_at');
+    }
+
+    if (isSupabaseConfigured() && isUuid(id)) {
       const supabase = createClient();
       if (supabase) {
         const { data, error } = await supabase
@@ -1365,12 +1745,13 @@ export const DataRepository = {
       updated_at: new Date().toISOString(),
     };
     store.events[idx] = updated;
+    queueMutation(store, 'events', 'UPDATE', id, updated);
     saveStore(store);
     return updated;
   },
 
   async deleteEvent(id: string): Promise<boolean> {
-    if (isSupabaseConfigured()) {
+    if (isSupabaseConfigured() && isUuid(id)) {
       const supabase = createClient();
       if (supabase) {
         const { error } = await supabase.from('events').delete().eq('id', id);
@@ -1379,6 +1760,7 @@ export const DataRepository = {
     }
     const store = loadStore();
     store.events = store.events.filter((e) => e.id !== id);
+    queueMutation(store, 'events', 'DELETE', id, { id });
     saveStore(store);
     return true;
   },
@@ -1550,25 +1932,34 @@ export const DataRepository = {
     return JSON.stringify(store, null, 2);
   },
 
-  async exportFullArchive(): Promise<string> {
+  async exportFullArchive(): Promise<Blob> {
     const store = loadStore();
     const blobs: Record<string, string> = {};
-    for (const doc of store.documents) {
-      try {
-        const b = await BlobStorage.getBlob(doc.id);
-        if (typeof b === "string") {
-          blobs[doc.id] = b;
-        } else if (doc.download_url) {
-          blobs[doc.id] = doc.download_url;
-        }
-      } catch {
-        if (doc.download_url) {
-          blobs[doc.id] = doc.download_url;
-        }
+
+    // 1. Collect all stored blobs from BlobStorage
+    const allStoredBlobs = await BlobStorage.getAllBlobs();
+    for (const [docId, blobVal] of allStoredBlobs.entries()) {
+      if (typeof blobVal === "string") {
+        blobs[docId] = blobVal;
+      } else if (typeof Blob !== "undefined" && blobVal instanceof Blob) {
+        try {
+          const buffer = await blobVal.arrayBuffer();
+          const base64 = typeof Buffer !== "undefined"
+            ? Buffer.from(buffer).toString("base64")
+            : btoa(String.fromCharCode(...new Uint8Array(buffer)));
+          blobs[docId] = `data:${blobVal.type || "application/octet-stream"};base64,${base64}`;
+        } catch {}
       }
     }
 
-    return JSON.stringify(
+    // 2. Fall back to any data URLs in store.documents
+    for (const doc of store.documents) {
+      if (!blobs[doc.id] && doc.download_url && doc.download_url.startsWith("data:")) {
+        blobs[doc.id] = doc.download_url;
+      }
+    }
+
+    const archiveJson = JSON.stringify(
       {
         ...store,
         _blobs: blobs,
@@ -1583,6 +1974,8 @@ export const DataRepository = {
       null,
       2
     );
+
+    return new Blob([archiveJson], { type: "application/json" });
   },
 
   importAllData(jsonString: string): boolean {
@@ -1604,12 +1997,119 @@ export const DataRepository = {
         if (!Array.isArray(parsed.course_concepts)) {
           parsed.course_concepts = JSON.parse(JSON.stringify(INITIAL_COURSE_CONCEPTS));
         }
+        if (!Array.isArray(parsed.document_summaries)) {
+          parsed.document_summaries = [];
+        }
+        if (!Array.isArray(parsed.course_prerequisites)) {
+          parsed.course_prerequisites = JSON.parse(JSON.stringify(INITIAL_COURSE_PREREQUISITES));
+        }
+        if (!Array.isArray(parsed.sync_outbox)) {
+          parsed.sync_outbox = [];
+        }
+        if (typeof parsed.revision_counter !== 'number') {
+          parsed.revision_counter = 1;
+        }
         saveStore(parsed as LocalStoreState);
         return true;
       }
       return false;
     } catch {
       return false;
+    }
+  },
+
+  /* ------------------------------------------------------------------------
+     WAL OUTBOX MUTATION QUEUE & RECONCILIATION
+     ------------------------------------------------------------------------ */
+  async syncOutbox(): Promise<{
+    processed: number;
+    succeeded: number;
+    failed: number;
+    deadLetter: number;
+  }> {
+    const store = loadStore();
+    const result = { processed: 0, succeeded: 0, failed: 0, deadLetter: 0 };
+
+    if (!store.sync_outbox || store.sync_outbox.length === 0) {
+      return result;
+    }
+
+    if (!isSupabaseConfigured()) {
+      return result;
+    }
+
+    const supabase = createClient();
+    if (!supabase) return result;
+
+    const { data: authData } = await supabase.auth.getUser();
+    if (!authData.user) return result;
+
+    const queue = store.sync_outbox.filter(
+      (item) => item.status === 'PENDING' || (item.status === 'FAILED' && (item.retry_count || 0) < 5)
+    );
+
+    for (const item of queue) {
+      result.processed++;
+      item.status = 'SYNCING';
+
+      try {
+        const table = item.entity;
+
+        if (item.action === 'DELETE') {
+          const { error } = await supabase.from(table).delete().eq('id', item.record_id);
+          if (error) throw error;
+        } else {
+          // INSERT or UPDATE: Idempotent upsert
+          const payload = {
+            ...item.payload,
+            id: item.record_id,
+            user_id: authData.user.id,
+          };
+          delete (payload as Record<string, any>).courses;
+          delete (payload as Record<string, any>).course;
+          delete (payload as Record<string, any>).person;
+          delete (payload as Record<string, any>).document;
+          delete (payload as Record<string, any>).concept;
+          delete (payload as Record<string, any>).associated_courses;
+          delete (payload as Record<string, any>).course_relationship;
+          delete (payload as Record<string, any>).people_count;
+          delete (payload as Record<string, any>).documents_count;
+
+          const { error } = await supabase.from(table).upsert(payload, { onConflict: 'id' });
+          if (error) throw error;
+        }
+
+        item.status = 'COMPLETED';
+        item.server_received_at = new Date().toISOString();
+        item.last_error = null;
+        result.succeeded++;
+      } catch (err: any) {
+        item.retry_count = (item.retry_count || 0) + 1;
+        item.last_error = err?.message || String(err);
+        if (item.retry_count >= 5) {
+          item.status = 'DEAD_LETTER';
+          result.deadLetter++;
+        } else {
+          item.status = 'FAILED';
+          result.failed++;
+        }
+      }
+    }
+
+    saveStore(store);
+    return result;
+  },
+
+  getSyncOutbox(): SyncOutboxItem[] {
+    const store = loadStore();
+    return store.sync_outbox || [];
+  },
+
+  clearCompletedOutbox(): void {
+    const store = loadStore();
+    if (store.sync_outbox) {
+      store.sync_outbox = store.sync_outbox.filter((item) => item.status !== 'COMPLETED');
+      saveStore(store);
     }
   },
 

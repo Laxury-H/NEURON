@@ -40,43 +40,90 @@ function parseAcademicIntent(query: string): AcademicQueryIntent | null {
   const q = query.toLowerCase().trim();
   if (!q) return null;
 
+  // 1. 72-Hour Exam Crunch & Conflict query detection
   if (
-    q.startsWith("?") ||
-    q.includes("when") ||
-    q.includes("exam") ||
-    q.includes("due") ||
-    q.includes("deadline") ||
-    q.includes("schedule")
+    q.includes("crunch") ||
+    q.includes("collision") ||
+    q.includes("conflict") ||
+    q.includes("overlap")
   ) {
-    const isExam = q.includes("exam");
-    const isDeadline = q.includes("due") || q.includes("deadline");
     return {
-      title: isExam
-        ? "Ask NEURON: View Upcoming Exams"
-        : isDeadline
-        ? "Ask NEURON: View Assignment Deadlines"
-        : "Ask NEURON: Open Semester Calendar",
-      subtitle: "Filter calendar schedule directly",
-      url: "/app/calendar",
+      title: "Ask NEURON: Review 72-Hour Exam Crunch & Schedule Conflicts",
+      subtitle: "Inspect overlapping exam windows, deadline collisions, and recommended study budgets",
+      url: "/app/calendar?showCrunch=true",
     };
   }
 
+  // 2. Exam Queries: jump directly to calendar week view filtered by EXAM
+  if (
+    q.includes("exam") ||
+    q.includes("midterm") ||
+    q.includes("final") ||
+    q.includes("quiz") ||
+    q.includes("thi")
+  ) {
+    return {
+      title: "Ask NEURON: View Upcoming Examination Milestones",
+      subtitle: "Filter calendar schedule directly to EXAM categories",
+      url: "/app/calendar?view=timeGridWeek&filter=EXAM",
+    };
+  }
+
+  // 3. Deadline & Due Date Queries: jump to calendar week view filtered by DEADLINE
+  if (
+    q.includes("due") ||
+    q.includes("deadline") ||
+    q.includes("assignment") ||
+    q.includes("submission") ||
+    q.includes("homework") ||
+    q.includes("hạn nộp")
+  ) {
+    return {
+      title: "Ask NEURON: View Academic Assignment Deadlines",
+      subtitle: "Filter calendar schedule directly to DEADLINE categories",
+      url: "/app/calendar?view=timeGridWeek&filter=DEADLINE",
+    };
+  }
+
+  // 4. Contact, Expert, & Teammate Queries
   if (
     q.startsWith("who") ||
+    q.includes("who knows") ||
     q.includes("expert") ||
     q.includes("knows") ||
     q.includes("teammate") ||
-    q.includes("partner")
+    q.includes("partner") ||
+    q.includes("professor") ||
+    q.includes("lecturer")
   ) {
     const topic = q
-      .replace(/who knows|expert in|teammate for|partner for|\?|who/g, "")
+      .replace(
+        /^(who knows|who is expert in|who is|expert in|experts in|teammate for|partner for|who)\s*/i,
+        ""
+      )
+      .replace(/[?!.]+$/, "")
       .trim();
     return {
       title: topic
         ? `Ask NEURON: Find classmates or experts in "${topic}"`
         : "Ask NEURON: Browse Academic Contact Directory",
-      subtitle: "Locate skills, research areas, and study partners",
+      subtitle: "Locate skills, research domains, and academic partners across directory",
       url: "/app/semesters",
+    };
+  }
+
+  // 5. General Schedule & Calendar Timeline Queries (including '?', 'when', 'schedule')
+  if (
+    q.startsWith("?") ||
+    q.includes("when") ||
+    q.includes("schedule") ||
+    q.includes("calendar") ||
+    q.includes("thời khóa biểu")
+  ) {
+    return {
+      title: "Ask NEURON: Open Unified Semester Schedule",
+      subtitle: "View interactive timeline with week view and lecture hours",
+      url: "/app/calendar?view=timeGridWeek",
     };
   }
 
@@ -153,7 +200,7 @@ export function GlobalSearch({ open, onOpenChange, onSelect }: GlobalSearchProps
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (intent && selectedIndex === 0) {
-        handleSelect(results[0]?.url || intent.url);
+        handleSelect(intent.url);
       } else {
         const resIdx = intent ? selectedIndex - 1 : selectedIndex;
         if (results[resIdx]) {
@@ -212,7 +259,7 @@ export function GlobalSearch({ open, onOpenChange, onSelect }: GlobalSearchProps
           {/* Ask NEURON Action Card */}
           {intent && (
             <button
-              onClick={() => handleSelect(results[0]?.url || intent.url)}
+              onClick={() => handleSelect(intent.url)}
               onMouseEnter={() => setSelectedIndex(0)}
               className={`w-full text-left flex items-center justify-between p-2.5 rounded-sm transition-colors text-xs border ${
                 selectedIndex === 0
@@ -221,8 +268,8 @@ export function GlobalSearch({ open, onOpenChange, onSelect }: GlobalSearchProps
               }`}
             >
               <div className="flex items-center space-x-3 overflow-hidden">
-                <div className="h-7 w-7 rounded-sm bg-foreground text-background flex items-center justify-center shrink-0 font-mono text-xs font-bold">
-                  AI
+                <div className="h-7 w-7 rounded-sm bg-foreground text-background flex items-center justify-center shrink-0 font-mono text-[11px] font-bold border border-border">
+                  [AI]
                 </div>
                 <div className="truncate">
                   <p className="font-semibold text-foreground truncate">
@@ -234,12 +281,12 @@ export function GlobalSearch({ open, onOpenChange, onSelect }: GlobalSearchProps
                 </div>
               </div>
               <div className="flex items-center space-x-1.5 shrink-0 ml-2">
-                <Badge variant="default" className="text-[9px] font-mono">
+                <Badge variant="default" className="text-[9px] font-mono border-border">
                   ACTION
                 </Badge>
                 {selectedIndex === 0 && (
-                  <kbd className="hidden sm:inline font-mono text-[9px] bg-muted px-1 rounded border border-border">
-                    ↵
+                  <kbd className="hidden sm:inline-flex items-center font-mono text-[9px] bg-muted px-1.5 py-0.5 rounded border border-border text-foreground">
+                    Enter ↵
                   </kbd>
                 )}
               </div>

@@ -16,7 +16,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import { Course, Person, DocumentItem, DocumentCategory, CourseGraphLayout, RelationshipType, Concept } from "@/types/database";
+import { Course, Person, DocumentItem, DocumentCategory, RelationshipType, Concept } from "@/types/database";
 import { DataRepository } from "@/lib/data/repository";
 import { useTheme } from "@/components/theme-provider";
 import { CourseNode } from "./nodes/course-node";
@@ -133,6 +133,8 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
   // Persistent positions cache & debounced storage writer for zero main-thread stutter
   const savedPositionsRef = React.useRef<Record<string, { x: number; y: number }>>({});
   const saveTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const hasSavedViewportRef = React.useRef<boolean>(false);
+  const initialFitDoneRef = React.useRef<boolean>(false);
 
   const debouncedSaveLayout = useCallback(
     (positions: Record<string, { x: number; y: number }>, viewport: { x: number; y: number; zoom: number }) => {
@@ -141,7 +143,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
       }
       saveTimerRef.current = setTimeout(() => {
         DataRepository.saveCourseGraphLayout(courseId, positions, viewport);
-      }, 600);
+      }, 300);
     },
     [courseId]
   );
@@ -161,9 +163,11 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
           savedPositionsRef.current = data.layout.positions;
         }
         if (data.layout?.viewport) {
-          setTimeout(() => {
-            setViewport(data.layout!.viewport, { duration: 300 });
-          }, 80);
+          hasSavedViewportRef.current = true;
+          // Synchronously restore saved viewport with zero duration to eliminate camera leap
+          setViewport(data.layout.viewport, { duration: 0 });
+        } else {
+          hasSavedViewportRef.current = false;
         }
       }
     } catch {
@@ -249,7 +253,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
     newEdges.push({
       id: "edge-course-relationships",
       source: "course",
-      sourceHandle: "course-left",
+      sourceHandle: "course-left-source",
       target: "relationships",
       targetHandle: "rel-right",
       type: "smoothstep",
@@ -374,6 +378,14 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
     }
 
     // 6. Render Concept Nodes (North Crown Arc)
+    // Compute dynamic occurrence badges from store.course_concepts and store.course_documents
+    let rawStore: any = null;
+    try {
+      rawStore = JSON.parse(DataRepository.exportAllData());
+    } catch {
+      rawStore = null;
+    }
+
     concepts.forEach((concept, index) => {
       const nodeId = `concept-${concept.id}`;
       const cPos = positions[nodeId] || concentric.concepts[index] || { x: coursePos.x - 120 + index * 260, y: coursePos.y - 180 };
@@ -383,6 +395,22 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         concept.name.toLowerCase().includes(graphSearchQuery.toLowerCase()) ||
         (concept.description && concept.description.toLowerCase().includes(graphSearchQuery.toLowerCase()));
 
+      let courseCount = 1;
+      let docCount = 0;
+      if (rawStore) {
+        const courseLinks = (rawStore.course_concepts || []).filter(
+          (cc: any) => cc.concept_id === concept.id
+        );
+        if (courseLinks.length > 0) {
+          courseCount = courseLinks.length;
+          const courseIds = new Set(courseLinks.map((cc: any) => cc.course_id));
+          const docsInCourses = (rawStore.course_documents || []).filter((cd: any) =>
+            courseIds.has(cd.course_id)
+          );
+          docCount = new Set(docsInCourses.map((cd: any) => cd.document_id)).size;
+        }
+      }
+
       newNodes.push({
         id: nodeId,
         type: "conceptNode",
@@ -391,8 +419,11 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
           id: concept.id,
           label: concept.name,
           description: concept.description,
-          courseCount: 1,
-          docCount: 0,
+          courseCount,
+          docCount,
+          onFilterClick: (label: string) => {
+            setGraphSearchQuery((prev) => (prev === label ? "" : label));
+          },
         },
         style: { opacity: matchesSearch ? 1 : 0.3 },
       });
@@ -427,15 +458,19 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
     setEdges,
   ]);
 
-  // Auto-fit view when nodes are first populated or clusters toggled
+  // Auto-fit view when nodes are first populated ONLY when no saved viewport exists.
+  // Cluster toggles (expandRelationships, expandFiles) must NEVER call fitView when a saved viewport is active.
   useEffect(() => {
     if (nodes.length > 0) {
-      const timer = setTimeout(() => {
-        fitView({ padding: 0.25, duration: 300 });
-      }, 80);
-      return () => clearTimeout(timer);
+      if (hasSavedViewportRef.current) {
+        return; // Bypassed: saved viewport is active, preserving exact camera position
+      }
+      if (!initialFitDoneRef.current) {
+        initialFitDoneRef.current = true;
+        fitView({ padding: 0.25, duration: 0 });
+      }
     }
-  }, [courseId, fitView, nodes.length, expandRelationships, expandFiles]);
+  }, [courseId, fitView, nodes.length]);
 
   // Node Drag Stop -> Save Positions without tearing down DOM nodes
   const onNodeDragStop: OnNodeDrag = useCallback(
@@ -976,7 +1011,6 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         onNodeClick={onNodeClick}
         onNodeContextMenu={onNodeContextMenu}
         nodeTypes={nodeTypes}
-        fitView
         onlyRenderVisibleElements={true}
         nodesDraggable={true}
         nodesConnectable={false}

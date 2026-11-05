@@ -178,15 +178,29 @@ export function detectScheduleConflicts(
       const bEnd = new Date(b.end_at).getTime();
 
       // If event B starts after event A ends, no further pairs with A can overlap
-      if (bStart >= aEnd) break;
+      if (bStart > aEnd || (bStart === aEnd && aStart !== aEnd)) break;
 
-      if (aStart < bEnd && bStart < aEnd) {
+      const isZeroA = aStart === aEnd;
+      const isZeroB = bStart === bEnd;
+
+      let isOverlap = false;
+      if (isZeroA && isZeroB) {
+        isOverlap = aStart === bStart;
+      } else if (isZeroA) {
+        isOverlap = aStart >= bStart && aStart < bEnd;
+      } else if (isZeroB) {
+        isOverlap = bStart >= aStart && bStart < aEnd;
+      } else {
+        isOverlap = aStart < bEnd && bStart < aEnd;
+      }
+
+      if (isOverlap) {
         const isExam = a.event_type === "EXAM" || b.event_type === "EXAM";
         conflicts.push({
           eventA: a,
           eventB: b,
           overlapStart: new Date(Math.max(aStart, bStart)).toISOString(),
-          overlapEnd: new Date(Math.min(aEnd, bEnd)).toISOString(),
+          overlapEnd: new Date(Math.max(Math.min(aEnd, bEnd), Math.max(aStart, bStart))).toISOString(),
           severity: isExam ? "CRITICAL" : "WARNING",
         });
       }

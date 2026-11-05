@@ -212,6 +212,20 @@ export function AppSidebar({ mobileOpen, onCloseMobile }: AppSidebarProps) {
             </Link>
 
             <Link
+              href="/app/graph"
+              onClick={onCloseMobile}
+              className={cn(
+                "flex items-center space-x-2 rounded-sm px-2.5 py-1.5 text-xs font-medium transition-colors",
+                pathname === "/app/graph"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <Network className="h-4 w-4 shrink-0" />
+              <span>Curriculum Graph</span>
+            </Link>
+
+            <Link
               href="/app/calendar"
               onClick={onCloseMobile}
               className={cn(

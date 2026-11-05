@@ -25,6 +25,7 @@ export const CourseNode = memo(({ data, selected }: NodeProps) => {
         "bg-neutral-950 text-white dark:bg-white dark:text-neutral-950"
       )}
     >
+      {/* 4 Cardinal Handles with dual source/target semantics mirroring ConceptNode */}
       <Handle
         type="source"
         id="course-top"
@@ -32,22 +33,49 @@ export const CourseNode = memo(({ data, selected }: NodeProps) => {
         className="opacity-0 w-2 h-2"
       />
       <Handle
-        type="source"
+        type="target"
+        id="course-top-target"
+        position={Position.Top}
+        className="opacity-0 w-2 h-2 pointer-events-none"
+      />
+
+      <Handle
+        type="target"
         id="course-bottom"
         position={Position.Bottom}
         className="opacity-0 w-2 h-2"
       />
       <Handle
         type="source"
+        id="course-bottom-source"
+        position={Position.Bottom}
+        className="opacity-0 w-2 h-2 pointer-events-none"
+      />
+
+      <Handle
+        type="target"
         id="course-left"
         position={Position.Left}
         className="opacity-0 w-2 h-2"
       />
       <Handle
         type="source"
+        id="course-left-source"
+        position={Position.Left}
+        className="opacity-0 w-2 h-2 pointer-events-none"
+      />
+
+      <Handle
+        type="source"
         id="course-right"
         position={Position.Right}
         className="opacity-0 w-2 h-2"
+      />
+      <Handle
+        type="target"
+        id="course-right-target"
+        position={Position.Right}
+        className="opacity-0 w-2 h-2 pointer-events-none"
       />
 
       <div className="flex flex-col items-center max-w-[150px]">

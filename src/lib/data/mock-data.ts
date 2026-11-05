@@ -9,6 +9,7 @@ import type {
   CourseGraphLayout,
   Concept,
   CourseConcept,
+  CoursePrerequisite,
 } from '../../types/database.ts';
 
 export const INITIAL_USER_ID = '00000000-0000-0000-0000-000000000001';
@@ -2161,3 +2162,41 @@ export const INITIAL_GRAPH_LAYOUTS: Record<string, CourseGraphLayout> = {
     updated_at: new Date('2026-09-01T00:00:00Z').toISOString(),
   },
 };
+
+export const INITIAL_COURSE_PREREQUISITES: CoursePrerequisite[] = [
+  {
+    id: 'prereq-1',
+    user_id: INITIAL_USER_ID,
+    course_id: 'c-ee4010',
+    prerequisite_course_id: 'c-ee3140',
+    created_at: new Date('2026-08-20T00:00:00Z').toISOString(),
+  },
+  {
+    id: 'prereq-2',
+    user_id: INITIAL_USER_ID,
+    course_id: 'c-ee4020e',
+    prerequisite_course_id: 'c-ee4010',
+    created_at: new Date('2026-08-20T00:00:00Z').toISOString(),
+  },
+  {
+    id: 'prereq-3',
+    user_id: INITIAL_USER_ID,
+    course_id: 'c-ee3810',
+    prerequisite_course_id: 'c-ee3410',
+    created_at: new Date('2026-08-20T00:00:00Z').toISOString(),
+  },
+  {
+    id: 'prereq-4',
+    user_id: INITIAL_USER_ID,
+    course_id: 'c-ee3810',
+    prerequisite_course_id: 'c-ee3101',
+    created_at: new Date('2026-08-20T00:00:00Z').toISOString(),
+  },
+  {
+    id: 'prereq-5',
+    user_id: INITIAL_USER_ID,
+    course_id: 'c-ee3600',
+    prerequisite_course_id: 'c-it4060',
+    created_at: new Date('2026-08-20T00:00:00Z').toISOString(),
+  },
+];

@@ -201,6 +201,10 @@ export interface SyncOutboxItem {
   payload: Record<string, any>;
   client_timestamp: string;
   server_received_at?: string;
+  status?: 'PENDING' | 'SYNCING' | 'COMPLETED' | 'FAILED' | 'DEAD_LETTER';
+  retry_count?: number;
+  last_error?: string | null;
+  revision?: number;
 }
 
 export interface CoursePrerequisite {

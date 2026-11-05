@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import FullCalendar from "@fullcalendar/react";
 import type { EventInput } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -56,6 +57,7 @@ export function SemesterCalendar({
   initialEventId,
 }: SemesterCalendarProps) {
   const calendarRef = useRef<FullCalendar | null>(null);
+  const searchParams = useSearchParams();
 
   const [semesters, setSemesters] = useState<Semester[]>([]);
   const [selectedSemesterId, setSelectedSemesterId] = useState<string>("");
@@ -81,6 +83,45 @@ export function SemesterCalendar({
   const [inspectingEvent, setInspectingEvent] = useState<CalendarEvent | null>(null);
   const [clickedDate, setClickedDate] = useState<Date | null>(null);
   const [conflictsDialogOpen, setConflictsDialogOpen] = useState(false);
+
+  // Handle URL Query Parameters (from Spotlight Search natural language deep links)
+  useEffect(() => {
+    if (!searchParams) return;
+
+    // View param
+    const viewParam = searchParams.get("view");
+    if (
+      viewParam &&
+      (viewParam === "dayGridMonth" ||
+        viewParam === "timeGridWeek" ||
+        viewParam === "listMonth")
+    ) {
+      setCurrentView(viewParam);
+      if (calendarRef.current) {
+        calendarRef.current.getApi().changeView(viewParam);
+      }
+    }
+
+    // Filter param (e.g. EXAM, DEADLINE, CLASS, PERSONAL)
+    const filterParam = searchParams.get("filter");
+    if (filterParam) {
+      const upper = filterParam.toUpperCase();
+      if (["CLASS", "EXAM", "DEADLINE", "PERSONAL"].includes(upper)) {
+        setActiveTypeFilters({
+          CLASS: upper === "CLASS",
+          EXAM: upper === "EXAM",
+          DEADLINE: upper === "DEADLINE",
+          PERSONAL: upper === "PERSONAL",
+        });
+      }
+    }
+
+    // 72-Hour Exam Crunch inspection trigger
+    const showCrunchParam = searchParams.get("showCrunch");
+    if (showCrunchParam === "true" || showCrunchParam === "1") {
+      setConflictsDialogOpen(true);
+    }
+  }, [searchParams]);
 
   // Load Semesters
   useEffect(() => {
@@ -338,6 +379,10 @@ export function SemesterCalendar({
     return filteredEvents.flatMap((ev): EventInput[] => {
       const hasConflict = conflictingEventIds.has(ev.id);
       const isCompleted = ev.deadline_status === "completed";
+      const isOverdue =
+        ev.event_type === "DEADLINE" &&
+        ev.deadline_status !== "completed" &&
+        new Date(ev.end_at).getTime() < Date.now();
 
       let className = "fc-event-default";
       if (ev.event_type === "CLASS") className = "fc-event-class";
@@ -351,9 +396,12 @@ export function SemesterCalendar({
       if (isCompleted) {
         className += " fc-event-completed";
       }
+      if (isOverdue) {
+        className += " fc-event-overdue";
+      }
 
       const titlePrefix = ev.course?.course_code ? `[${ev.course.course_code}] ` : "";
-      const statusPrefix = isCompleted ? "[✓] " : "";
+      const statusPrefix = isCompleted ? "[✓] " : isOverdue ? "[!] " : "";
       const conflictSuffix = hasConflict ? " [! CONFLICT]" : "";
       const displayTitle = `${statusPrefix}${titlePrefix}${ev.title}${conflictSuffix}`;
 
