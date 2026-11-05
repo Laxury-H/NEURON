@@ -8,7 +8,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "node --experimental-strip-types --test"
+    "test": "node --experimental-strip-types --test",
+    "audit:monochrome": "node scripts/audit-monochrome.mjs",
+    "audit:migrations": "node scripts/audit-migrations.mjs",
+    "verify:all": "node --experimental-strip-types --test && node scripts/audit-monochrome.mjs && node scripts/audit-migrations.mjs && next build"
   },
   "dependencies": {
     "@fullcalendar/core": "6.1.15",

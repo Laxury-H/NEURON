@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { CalendarEvent } from "@/types/database";
+import { CalendarEvent, DeadlineStatus } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -16,6 +16,8 @@ import {
   Edit2,
   Trash2,
   ExternalLink,
+  CheckCircle2,
+  CircleDashed,
 } from "lucide-react";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 
@@ -24,6 +26,7 @@ interface EventDetailPanelProps {
   onClose: () => void;
   onEdit: (event: CalendarEvent) => void;
   onDelete: (eventId: string) => Promise<void>;
+  onToggleStatus?: (eventId: string, newStatus: DeadlineStatus) => Promise<void>;
 }
 
 export function EventDetailPanel({
@@ -31,13 +34,22 @@ export function EventDetailPanel({
   onClose,
   onEdit,
   onDelete,
+  onToggleStatus,
 }: EventDetailPanelProps) {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [statusUpdating, setStatusUpdating] = useState(false);
 
   if (!event) return null;
 
   const startDate = new Date(event.start_at);
   const endDate = new Date(event.end_at);
+  const isPast = endDate.getTime() < Date.now();
+  const effectiveStatus =
+    event.deadline_status === "completed"
+      ? "completed"
+      : isPast
+      ? "overdue"
+      : event.deadline_status || "pending";
 
   const getReminderLabel = (mins: number) => {
     if (mins === 15) return "15 minutes before";
@@ -46,6 +58,18 @@ export function EventDetailPanel({
     if (mins === 1440) return "1 day before";
     if (mins === 4320) return "3 days before";
     return `${mins} minutes before`;
+  };
+
+  const handleStatusToggle = async () => {
+    if (!onToggleStatus) return;
+    setStatusUpdating(true);
+    try {
+      const nextStatus: DeadlineStatus =
+        event.deadline_status === "completed" ? "pending" : "completed";
+      await onToggleStatus(event.id, nextStatus);
+    } finally {
+      setStatusUpdating(false);
+    }
   };
 
   return (
@@ -82,9 +106,13 @@ export function EventDetailPanel({
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-5 text-xs">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
         <div>
-          <h2 className="text-base font-bold text-foreground leading-snug">
+          <h2
+            className={`text-base font-bold text-foreground leading-snug ${
+              effectiveStatus === "completed" ? "line-through opacity-70" : ""
+            }`}
+          >
             {event.title}
           </h2>
           {event.course && (
@@ -98,6 +126,47 @@ export function EventDetailPanel({
             </div>
           )}
         </div>
+
+        {/* Deadline Status & Progress Management */}
+        {(event.event_type === "DEADLINE" || onToggleStatus) && (
+          <div className="p-3 rounded-md border border-border bg-card space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[10px] uppercase font-bold text-muted-foreground">
+                Deadline Progress
+              </span>
+              <Badge
+                variant={effectiveStatus === "completed" ? "default" : "subtle"}
+                className="text-[10px] font-mono uppercase"
+              >
+                {effectiveStatus === "completed"
+                  ? "[✓ COMPLETED]"
+                  : effectiveStatus === "overdue"
+                  ? "[! OVERDUE]"
+                  : "[PENDING]"}
+              </Badge>
+            </div>
+
+            <Button
+              variant={effectiveStatus === "completed" ? "outline" : "default"}
+              size="sm"
+              onClick={handleStatusToggle}
+              disabled={statusUpdating}
+              className="w-full h-7 text-xs font-mono flex items-center justify-center space-x-1.5"
+            >
+              {effectiveStatus === "completed" ? (
+                <>
+                  <CircleDashed className="h-3.5 w-3.5 mr-1" />
+                  <span>Mark as Pending</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                  <span>Mark as Completed</span>
+                </>
+              )}
+            </Button>
+          </div>
+        )}
 
         {/* Date & Time Info */}
         <div className="p-3 rounded-md border border-border bg-card space-y-2.5">

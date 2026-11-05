@@ -24,6 +24,8 @@ import { RelationshipGroupNode } from "./nodes/relationship-group-node";
 import { FilesGroupNode } from "./nodes/files-group-node";
 import { PersonNode } from "./nodes/person-node";
 import { DocumentNode } from "./nodes/document-node";
+import { ConceptNode } from "./nodes/concept-node";
+import { computeConcentricLayout } from "./layout/radial-layout";
 
 import { CourseDetailPanel } from "./course-detail-panel";
 import { PersonDetailPanel } from "./person-detail-panel";
@@ -70,6 +72,7 @@ const nodeTypes = {
   filesGroupNode: FilesGroupNode,
   personNode: PersonNode,
   documentNode: DocumentNode,
+  conceptNode: ConceptNode,
 };
 
 function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
@@ -252,13 +255,15 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
       style: { stroke: centralEdgeStroke, strokeWidth: pureBw ? 2 : 1.5 },
     });
 
+    // Calculate radial concentric coordinates for leaf nodes
+    const concentric = computeConcentricLayout(coursePos, people.length, documents.length);
+
     // 4. Render Person Nodes if Relationships is expanded
     if (expandRelationships) {
       people.forEach((p, index) => {
         const nodeId = `person-${p.id}`;
-        // Spread evenly in an arc/column on the left
-        const defaultX = relPos.x - 220;
-        const defaultY = relPos.y - 120 + index * 75;
+        const defaultX = concentric.people[index]?.x ?? (relPos.x - 220);
+        const defaultY = concentric.people[index]?.y ?? (relPos.y - 120 + index * 75);
         const pPos = positions[nodeId] || { x: defaultX, y: defaultY };
 
         const matchesSearch =
@@ -295,9 +300,8 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
     if (expandFiles) {
       documents.forEach((d, index) => {
         const nodeId = `doc-${d.id}`;
-        // Spread evenly in an arc/column on the right
-        const defaultX = filesPos.x + 220;
-        const defaultY = filesPos.y - 120 + index * 75;
+        const defaultX = concentric.docs[index]?.x ?? (filesPos.x + 220);
+        const defaultY = concentric.docs[index]?.y ?? (filesPos.y - 120 + index * 75);
         const dPos = positions[nodeId] || { x: defaultX, y: defaultY };
 
         const matchesSearch =
@@ -463,18 +467,21 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
 
   // Reset Layout to balanced structure
   const handleResetLayout = useCallback(() => {
+    const courseCenter = { x: 380, y: 220 };
     const defaultPositions: Record<string, { x: number; y: number }> = {
-      course: { x: 380, y: 220 },
+      course: courseCenter,
       relationships: { x: 80, y: 140 },
       files: { x: 680, y: 140 },
     };
 
+    const concentric = computeConcentricLayout(courseCenter, people.length, documents.length);
+
     people.forEach((p, idx) => {
-      defaultPositions[`person-${p.id}`] = { x: -140, y: 40 + idx * 75 };
+      defaultPositions[`person-${p.id}`] = concentric.people[idx] || { x: -140, y: 40 + idx * 75 };
     });
 
     documents.forEach((d, idx) => {
-      defaultPositions[`doc-${d.id}`] = { x: 900, y: 40 + idx * 75 };
+      defaultPositions[`doc-${d.id}`] = concentric.docs[idx] || { x: 900, y: 40 + idx * 75 };
     });
 
     const defaultViewport = { x: 50, y: 50, zoom: 0.9 };

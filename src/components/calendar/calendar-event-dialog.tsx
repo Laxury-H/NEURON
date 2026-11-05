@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { CalendarEvent, Course, EventType } from "@/types/database";
+import { CalendarEvent, Course, EventType, DeadlineStatus } from "@/types/database";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +42,7 @@ interface CalendarEventDialogProps {
     recurrence_rule?: string | null;
     timezone?: string;
     reminder_offsets_minutes?: number[];
+    deadline_status?: DeadlineStatus;
   }) => Promise<void>;
 }
 
@@ -67,6 +68,7 @@ export function CalendarEventDialog({
   const [description, setDescription] = useState("");
   const [repeatsWeekly, setRepeatsWeekly] = useState(false);
   const [reminderOffset, setReminderOffset] = useState("15");
+  const [deadlineStatus, setDeadlineStatus] = useState<DeadlineStatus>("pending");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -89,6 +91,7 @@ export function CalendarEventDialog({
           ? String(event.reminder_offsets_minutes[0])
           : "15"
       );
+      setDeadlineStatus(event.deadline_status || "pending");
     } else {
       const defaultDate = initialDate ? new Date(initialDate) : new Date();
       const dateStr = defaultDate.toISOString().split("T")[0];
@@ -104,6 +107,7 @@ export function CalendarEventDialog({
       setDescription("");
       setRepeatsWeekly(false);
       setReminderOffset("15");
+      setDeadlineStatus("pending");
     }
   }, [event, initialDate, initialCourseId, open]);
 
@@ -138,6 +142,7 @@ export function CalendarEventDialog({
         recurrence_rule: recurrenceRule,
         timezone: "Asia/Ho_Chi_Minh",
         reminder_offsets_minutes: [parseInt(reminderOffset) || 15],
+        deadline_status: eventType === "DEADLINE" ? deadlineStatus : "pending",
       });
       onOpenChange(false);
     } finally {
@@ -166,7 +171,7 @@ export function CalendarEventDialog({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className={`grid ${eventType === "DEADLINE" ? "grid-cols-3" : "grid-cols-2"} gap-3`}>
             <div className="space-y-1">
               <Label>Category</Label>
               <Select
@@ -184,6 +189,25 @@ export function CalendarEventDialog({
                 </SelectContent>
               </Select>
             </div>
+
+            {eventType === "DEADLINE" && (
+              <div className="space-y-1">
+                <Label>Status</Label>
+                <Select
+                  value={deadlineStatus}
+                  onValueChange={(val) => setDeadlineStatus(val as DeadlineStatus)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="overdue">Overdue</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-1">
               <Label>Associated Course</Label>

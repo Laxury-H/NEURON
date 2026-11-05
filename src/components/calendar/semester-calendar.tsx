@@ -7,11 +7,24 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
 
-import { CalendarEvent, Course, Semester, EventType } from "@/types/database";
+import { CalendarEvent, Course, Semester, EventType, DeadlineStatus } from "@/types/database";
 import { DataRepository } from "@/lib/data/repository";
+import {
+  detectScheduleConflicts,
+  detectExamCrunches,
+  ConflictPair,
+  CrunchWindow,
+} from "@/lib/calendar/conflict-detector";
+import { generateICalendarFeed } from "@/lib/calendar/ical-generator";
 import { CalendarEventDialog } from "./calendar-event-dialog";
 import { EventDetailPanel } from "./event-detail-panel";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -22,6 +35,9 @@ import {
 import {
   Plus,
   Calendar as CalendarIcon,
+  Download,
+  AlertTriangle,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -62,6 +78,7 @@ export function SemesterCalendar({
   const [selectedEventForEdit, setSelectedEventForEdit] = useState<CalendarEvent | null>(null);
   const [inspectingEvent, setInspectingEvent] = useState<CalendarEvent | null>(null);
   const [clickedDate, setClickedDate] = useState<Date | null>(null);
+  const [conflictsDialogOpen, setConflictsDialogOpen] = useState(false);
 
   // Load Semesters
   useEffect(() => {
@@ -70,7 +87,6 @@ export function SemesterCalendar({
         const sems = await DataRepository.getSemesters();
         setSemesters(sems);
         if (sems.length > 0) {
-          // If initialSemesterId provided in props or active semester exists
           let target = sems.find((s) => s.id === initialSemesterId);
           if (!target) target = sems.find((s) => s.is_active);
           if (!target) target = sems[0];
@@ -120,6 +136,29 @@ export function SemesterCalendar({
     }
   }, [selectedSemesterId, loadSemesterData]);
 
+  // Schedule Conflicts & Exam Crunch Calculation
+  const scheduleConflicts = useMemo<ConflictPair[]>(() => {
+    if (!currentSemester) return [];
+    const range = {
+      start: new Date(currentSemester.start_date),
+      end: new Date(currentSemester.end_date),
+    };
+    return detectScheduleConflicts(events, range);
+  }, [events, currentSemester]);
+
+  const examCrunches = useMemo<CrunchWindow[]>(() => {
+    return detectExamCrunches(events);
+  }, [events]);
+
+  const conflictingEventIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const c of scheduleConflicts) {
+      ids.add(c.eventA.id.split("_occ_")[0]);
+      ids.add(c.eventB.id.split("_occ_")[0]);
+    }
+    return ids;
+  }, [scheduleConflicts]);
+
   // Event handlers
   const handleSaveEvent = async (data: any) => {
     try {
@@ -136,8 +175,8 @@ export function SemesterCalendar({
         const match = updated.find((e) => e.id === inspectingEvent.id);
         setInspectingEvent(match || null);
       }
-    } catch {
-      toast.error("Failed to save event");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to save event");
     }
   };
 
@@ -152,6 +191,116 @@ export function SemesterCalendar({
     }
   };
 
+  const handleUpdateDeadlineStatus = async (eventId: string, newStatus: DeadlineStatus) => {
+    try {
+      await DataRepository.updateEvent(eventId, { deadline_status: newStatus });
+      toast.success(`Deadline marked as ${newStatus}`);
+      await loadSemesterData();
+      if (inspectingEvent?.id === eventId) {
+        setInspectingEvent((prev) => (prev ? { ...prev, deadline_status: newStatus } : null));
+      }
+    } catch {
+      toast.error("Failed to update deadline status");
+    }
+  };
+
+  // Drag-to-Reschedule Handler
+  const handleEventDrop = async (info: any) => {
+    const originalEvent = info.event.extendedProps?.originalEvent as CalendarEvent;
+    if (!originalEvent) return;
+    const { start, end, allDay } = info.event;
+    if (!start) return;
+
+    try {
+      const startIso = start.toISOString();
+      const endIso = end
+        ? end.toISOString()
+        : new Date(start.getTime() + (allDay ? 86400000 : 7200000)).toISOString();
+
+      let updatedRecurrenceRule = originalEvent.recurrence_rule;
+      if (originalEvent.recurrence_rule && originalEvent.recurrence_rule.includes("FREQ=WEEKLY")) {
+        const dayTokens = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+        const newDayToken = dayTokens[start.getDay()];
+        if (originalEvent.recurrence_rule.includes("BYDAY=")) {
+          updatedRecurrenceRule = originalEvent.recurrence_rule.replace(
+            /BYDAY=[A-Z,]+/,
+            `BYDAY=${newDayToken}`
+          );
+        } else {
+          updatedRecurrenceRule = `${originalEvent.recurrence_rule};BYDAY=${newDayToken}`;
+        }
+      }
+
+      await DataRepository.updateEvent(originalEvent.id, {
+        start_at: startIso,
+        end_at: endIso,
+        all_day: allDay,
+        ...(updatedRecurrenceRule !== originalEvent.recurrence_rule
+          ? { recurrence_rule: updatedRecurrenceRule }
+          : {}),
+      });
+      toast.success("Event rescheduled");
+      await loadSemesterData();
+      if (inspectingEvent?.id === originalEvent.id) {
+        setInspectingEvent((prev) =>
+          prev
+            ? {
+                ...prev,
+                start_at: startIso,
+                end_at: endIso,
+                all_day: allDay,
+                recurrence_rule: updatedRecurrenceRule,
+              }
+            : null
+        );
+      }
+    } catch (err: any) {
+      info.revert();
+      toast.error(err?.message || "Failed to reschedule event");
+    }
+  };
+
+  // Drag-to-Resize Handler
+  const handleEventResize = async (info: any) => {
+    const originalEvent = info.event.extendedProps?.originalEvent as CalendarEvent;
+    if (!originalEvent) return;
+    const { start, end, allDay } = info.event;
+    if (!start || !end) return;
+
+    try {
+      await DataRepository.updateEvent(originalEvent.id, {
+        start_at: start.toISOString(),
+        end_at: end.toISOString(),
+        all_day: allDay,
+      });
+      toast.success("Event duration updated");
+      await loadSemesterData();
+    } catch (err: any) {
+      info.revert();
+      toast.error(err?.message || "Failed to update duration");
+    }
+  };
+
+  // RFC 5545 iCalendar (.ics) Export
+  const handleExportIcs = () => {
+    if (!currentSemester) return;
+    try {
+      const icsContent = generateICalendarFeed(currentSemester, events);
+      const blob = new Blob([icsContent], { type: "text/calendar;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${currentSemester.name.replace(/\s+/g, "_")}_schedule.ics`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("iCalendar (.ics) exported");
+    } catch {
+      toast.error("Failed to export iCalendar");
+    }
+  };
+
   const toggleTypeFilter = (type: EventType) => {
     setActiveTypeFilters((prev) => ({
       ...prev,
@@ -162,11 +311,9 @@ export function SemesterCalendar({
   // Filtered Events for Calendar
   const filteredEvents = useMemo(() => {
     return events.filter((ev) => {
-      // Course filter
       if (selectedCourseFilter !== "all") {
         if (ev.course_id !== selectedCourseFilter) return false;
       }
-      // Type filter
       if (!activeTypeFilters[ev.event_type]) return false;
       return true;
     });
@@ -187,13 +334,26 @@ export function SemesterCalendar({
   // Map to FullCalendar event format with weekly recurrence expansion
   const calendarEvents = useMemo(() => {
     return filteredEvents.map((ev) => {
+      const hasConflict = conflictingEventIds.has(ev.id);
+      const isCompleted = ev.deadline_status === "completed";
+
       let className = "fc-event-default";
       if (ev.event_type === "CLASS") className = "fc-event-class";
       if (ev.event_type === "EXAM") className = "fc-event-exam";
       if (ev.event_type === "DEADLINE") className = "fc-event-deadline";
       if (ev.event_type === "PERSONAL") className = "fc-event-personal";
 
+      if (hasConflict) {
+        className += " fc-event-conflict";
+      }
+      if (isCompleted) {
+        className += " fc-event-completed";
+      }
+
       const titlePrefix = ev.course?.course_code ? `[${ev.course.course_code}] ` : "";
+      const statusPrefix = isCompleted ? "[✓] " : "";
+      const conflictSuffix = hasConflict ? " [! CONFLICT]" : "";
+      const displayTitle = `${statusPrefix}${titlePrefix}${ev.title}${conflictSuffix}`;
 
       // Check for weekly recurrence
       if (ev.recurrence_rule && ev.recurrence_rule.includes("FREQ=WEEKLY")) {
@@ -215,16 +375,15 @@ export function SemesterCalendar({
             ? byDayMap[byDayMatch[1]]
             : startDateObj.getDay();
 
-        // Format times in Asia/Ho_Chi_Minh
         const startTimeStr = startDateObj.toLocaleTimeString("en-GB", {
-          timeZone: "Asia/Ho_Chi_Minh",
+          timeZone: ev.timezone || "Asia/Ho_Chi_Minh",
           hour: "2-digit",
           minute: "2-digit",
           second: "2-digit",
           hour12: false,
         });
         const endTimeStr = endDateObj.toLocaleTimeString("en-GB", {
-          timeZone: "Asia/Ho_Chi_Minh",
+          timeZone: ev.timezone || "Asia/Ho_Chi_Minh",
           hour: "2-digit",
           minute: "2-digit",
           second: "2-digit",
@@ -232,14 +391,14 @@ export function SemesterCalendar({
         });
 
         const startRecurStr = startDateObj.toLocaleDateString("en-CA", {
-          timeZone: "Asia/Ho_Chi_Minh",
+          timeZone: ev.timezone || "Asia/Ho_Chi_Minh",
         });
         const endRecurStr = currentSemester?.end_date || "2027-12-31";
 
         return {
           id: ev.id,
           groupId: ev.id,
-          title: `${titlePrefix}${ev.title}`,
+          title: displayTitle,
           daysOfWeek: [dayNumber],
           startTime: ev.all_day ? undefined : startTimeStr,
           endTime: ev.all_day ? undefined : endTimeStr,
@@ -249,23 +408,25 @@ export function SemesterCalendar({
           className,
           extendedProps: {
             originalEvent: ev,
+            hasConflict,
           },
         };
       }
 
       return {
         id: ev.id,
-        title: `${titlePrefix}${ev.title}`,
+        title: displayTitle,
         start: ev.start_at,
         end: ev.end_at,
         allDay: ev.all_day,
         className,
         extendedProps: {
           originalEvent: ev,
+          hasConflict,
         },
       };
     });
-  }, [filteredEvents, currentSemester]);
+  }, [filteredEvents, currentSemester, conflictingEventIds]);
 
   // Switch Calendar View
   const handleViewChange = (view: "dayGridMonth" | "timeGridWeek" | "listMonth") => {
@@ -283,14 +444,14 @@ export function SemesterCalendar({
   };
 
   const handleEventClick = (info: any) => {
-    const original = info.event.extendedProps.originalEvent as CalendarEvent;
+    const original = info.event.extendedProps?.originalEvent as CalendarEvent;
     if (original) {
       setInspectingEvent(original);
     }
   };
 
   return (
-    <div className="relative flex flex-col h-[calc(100vh-3.5rem)] md:h-screen p-4 md:p-6 space-y-4 overflow-hidden">
+    <div className="relative flex flex-col h-[calc(100vh-3.5rem)] md:h-screen p-4 md:p-6 space-y-3 sm:space-y-4 overflow-hidden">
       {/* Top Header & Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3 sm:pb-4 shrink-0">
         {/* Semester selector */}
@@ -368,6 +529,17 @@ export function SemesterCalendar({
         {/* Right actions */}
         <div className="flex items-center space-x-2 shrink-0">
           <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs font-mono"
+            onClick={handleExportIcs}
+            title="Export RFC 5545 iCalendar feed (.ics) for Google/Apple/Outlook"
+          >
+            <Download className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+            <span className="hidden sm:inline">Export</span> .ICS
+          </Button>
+
+          <Button
             size="sm"
             className="h-8 text-xs"
             onClick={() => {
@@ -381,6 +553,41 @@ export function SemesterCalendar({
           </Button>
         </div>
       </div>
+
+      {/* Conflict & Exam Crunch Warning Strip */}
+      {(scheduleConflicts.length > 0 || examCrunches.length > 0) && (
+        <div className="flex items-center justify-between px-3 py-2 rounded-md border border-border bg-card text-xs font-mono shrink-0 gap-2">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            {scheduleConflicts.length > 0 && (
+              <span className="flex items-center space-x-1.5 font-semibold text-foreground">
+                <AlertTriangle className="h-3.5 w-3.5 text-foreground shrink-0" />
+                <span>
+                  [{scheduleConflicts.length}{" "}
+                  {scheduleConflicts.length === 1 ? "CONFLICT" : "CONFLICTS"} DETECTED]
+                </span>
+              </span>
+            )}
+            {examCrunches.length > 0 && (
+              <span className="flex items-center space-x-1.5 text-muted-foreground">
+                <Zap className="h-3.5 w-3.5 shrink-0" />
+                <span>
+                  [{examCrunches.length} CRUNCH WINDOW
+                  {examCrunches.length === 1 ? "" : "S"}]
+                </span>
+              </span>
+            )}
+          </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 text-[11px] font-mono px-2 shrink-0"
+            onClick={() => setConflictsDialogOpen(true)}
+          >
+            Inspect Issues
+          </Button>
+        </div>
+      )}
 
       {/* Filter Ribbon */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 text-xs border border-border bg-card p-2 sm:p-2.5 rounded-md max-w-full overflow-hidden shrink-0">
@@ -428,7 +635,14 @@ export function SemesterCalendar({
                 )}
               >
                 <span>{type}</span>
-                <span className={cn("text-[9px] opacity-75", active ? "text-white/90 dark:text-neutral-900/90" : "text-muted-foreground")}>
+                <span
+                  className={cn(
+                    "text-[9px] opacity-75",
+                    active
+                      ? "text-white/90 dark:text-neutral-900/90"
+                      : "text-muted-foreground"
+                  )}
+                >
                   ({categoryCounts[type]})
                 </span>
               </button>
@@ -449,7 +663,11 @@ export function SemesterCalendar({
             right: "",
           }}
           events={calendarEvents}
-          editable={false}
+          editable={true}
+          eventDurationEditable={true}
+          droppable={true}
+          eventDrop={handleEventDrop}
+          eventResize={handleEventResize}
           selectable={true}
           dateClick={handleDateClick}
           eventClick={handleEventClick}
@@ -472,6 +690,7 @@ export function SemesterCalendar({
             setEventDialogOpen(true);
           }}
           onDelete={handleDeleteEvent}
+          onToggleStatus={handleUpdateDeadlineStatus}
         />
       )}
 
@@ -486,6 +705,132 @@ export function SemesterCalendar({
         event={selectedEventForEdit}
         onSave={handleSaveEvent}
       />
+
+      {/* Conflicts & Crunch Review Dialog */}
+      <Dialog open={conflictsDialogOpen} onOpenChange={setConflictsDialogOpen}>
+        <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base font-mono flex items-center space-x-2">
+              <AlertTriangle className="h-4 w-4" />
+              <span>Academic Schedule Analysis</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-xs">
+            {/* Schedule Conflicts */}
+            <div>
+              <h4 className="font-mono text-xs font-bold uppercase tracking-wider text-foreground mb-2">
+                Interval Overlap Conflicts ({scheduleConflicts.length})
+              </h4>
+              {scheduleConflicts.length === 0 ? (
+                <p className="text-muted-foreground font-mono text-[11px]">
+                  No overlapping schedule collisions detected.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {scheduleConflicts.map((c, i) => (
+                    <div
+                      key={i}
+                      className="p-3 rounded border border-border bg-card space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between font-mono text-[10px]">
+                        <span className="font-bold uppercase text-foreground">
+                          [{c.severity} COLLISION]
+                        </span>
+                        <span className="text-muted-foreground">
+                          {new Date(c.overlapStart).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}{" "}
+                          –{" "}
+                          {new Date(c.overlapEnd).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                      <div className="space-y-1 text-foreground">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">• {c.eventA.title}</span>
+                          <button
+                            onClick={() => {
+                              setConflictsDialogOpen(false);
+                              setInspectingEvent(c.eventA);
+                            }}
+                            className="text-[11px] underline text-muted-foreground hover:text-foreground"
+                          >
+                            Inspect
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">• {c.eventB.title}</span>
+                          <button
+                            onClick={() => {
+                              setConflictsDialogOpen(false);
+                              setInspectingEvent(c.eventB);
+                            }}
+                            className="text-[11px] underline text-muted-foreground hover:text-foreground"
+                          >
+                            Inspect
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Exam & Deadline Crunch Windows */}
+            <div>
+              <h4 className="font-mono text-xs font-bold uppercase tracking-wider text-foreground mb-2">
+                72-Hour Exam & Deadline Crunch Windows ({examCrunches.length})
+              </h4>
+              {examCrunches.length === 0 ? (
+                <p className="text-muted-foreground font-mono text-[11px]">
+                  No consecutive exam crunches detected within 72-hour windows.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {examCrunches.map((w, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3 rounded border border-border bg-card space-y-1.5 font-mono text-xs"
+                    >
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-bold uppercase text-foreground">
+                          [{w.severity} CRUNCH: {w.events.length} HIGH-STAKES EVENTS]
+                        </span>
+                        <span className="text-muted-foreground">
+                          Est. Study: {w.recommendedPreparationHours}h
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        {w.startDate.toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        })}{" "}
+                        –{" "}
+                        {w.endDate.toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </p>
+                      <ul className="space-y-0.5 text-[11px] text-foreground font-sans pt-1">
+                        {w.events.map((ev) => (
+                          <li key={ev.id}>
+                            • [{ev.event_type}] {ev.title}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

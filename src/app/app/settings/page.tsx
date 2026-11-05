@@ -38,6 +38,29 @@ export default function SettingsPage() {
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const supabaseConnected = isSupabaseConfigured();
 
+  const [counts, setCounts] = useState({
+    semesters: 0,
+    courses: 0,
+    people: 0,
+    documents: 0,
+  });
+
+  React.useEffect(() => {
+    async function loadCounts() {
+      const sems = await DataRepository.getSemesters();
+      const people = await DataRepository.getPeople();
+      const docs = await DataRepository.getDocuments();
+      const totalCourses = sems.reduce((acc, s) => acc + (s.courses?.length || 0), 0);
+      setCounts({
+        semesters: sems.length,
+        courses: totalCourses,
+        people: people.length,
+        documents: docs.length,
+      });
+    }
+    loadCounts();
+  }, []);
+
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
     toast.success("Profile preferences saved");
@@ -58,6 +81,24 @@ export default function SettingsPage() {
       toast.success("Workspace backup downloaded");
     } catch {
       toast.error("Failed to export backup");
+    }
+  };
+
+  const handleExportFullArchive = async () => {
+    try {
+      const dataStr = await DataRepository.exportFullArchive();
+      const blob = new Blob([dataStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `neuron-complete-vault-${new Date().toISOString().split("T")[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success("Complete vault archive downloaded");
+    } catch {
+      toast.error("Failed to export complete vault");
     }
   };
 
@@ -251,6 +292,12 @@ export default function SettingsPage() {
               <span className="text-muted-foreground">Graph Layout Persistence:</span>
               <span className="font-semibold text-foreground">Active</span>
             </div>
+            <div className="flex flex-col sm:flex-row sm:justify-between pt-1 border-t border-border/50 gap-0.5">
+              <span className="text-muted-foreground">Local Academic Vault:</span>
+              <span className="font-semibold text-foreground">
+                {counts.semesters} Semesters • {counts.courses} Courses • {counts.people} Contacts • {counts.documents} Files
+              </span>
+            </div>
           </div>
         </div>
 
@@ -274,6 +321,16 @@ export default function SettingsPage() {
             >
               <Download className="h-3.5 w-3.5 mr-1.5" />
               Export JSON Backup
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportFullArchive}
+              className="text-xs h-8 font-mono"
+            >
+              <Download className="h-3.5 w-3.5 mr-1.5" />
+              Complete Vault Archive
             </Button>
 
             <Button

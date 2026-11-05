@@ -145,6 +145,34 @@ export default function SemestersPage() {
         </div>
       </div>
 
+      {/* Quick Academic Overview Metrics */}
+      {!loading && semesters.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="rounded border border-border bg-card p-3 font-mono">
+            <span className="text-[10px] uppercase text-muted-foreground block">Semesters</span>
+            <span className="text-xl font-bold text-foreground">{semesters.length}</span>
+          </div>
+          <div className="rounded border border-border bg-card p-3 font-mono">
+            <span className="text-[10px] uppercase text-muted-foreground block">Total Courses</span>
+            <span className="text-xl font-bold text-foreground">
+              {semesters.reduce((acc, s) => acc + (s.courses?.length || 0), 0)}
+            </span>
+          </div>
+          <div className="rounded border border-border bg-card p-3 font-mono">
+            <span className="text-[10px] uppercase text-muted-foreground block">Total Credits</span>
+            <span className="text-xl font-bold text-foreground">
+              {semesters.reduce((acc, s) => acc + (s.courses?.reduce((cAcc, c) => cAcc + (c.credits || 0), 0) || 0), 0)}
+            </span>
+          </div>
+          <div className="rounded border border-border bg-card p-3 font-mono">
+            <span className="text-[10px] uppercase text-muted-foreground block">Active Term</span>
+            <span className="text-sm font-bold text-foreground truncate block mt-1">
+              {semesters.find((s) => s.is_active)?.name || "None"}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Loading state */}
       {loading && (
         <div className="space-y-4">

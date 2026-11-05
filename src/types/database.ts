@@ -159,3 +159,55 @@ export interface GlobalSearchResult {
   url: string;
   metadata?: Record<string, any>;
 }
+
+export interface Concept {
+  id: string;
+  user_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CourseConcept {
+  id: string;
+  user_id: string;
+  course_id: string;
+  concept_id: string;
+  relevance_score: number;
+  source_type: 'MANUAL' | 'EXTRACTED_SYLLABUS' | 'EXTRACTED_DOCUMENT';
+  created_at: string;
+  concept?: Concept;
+}
+
+export interface DocumentSummary {
+  id: string;
+  user_id: string;
+  document_id: string;
+  executive_summary: string;
+  key_takeaways: string[];
+  extracted_formulas: string[];
+  candidate_concepts: string[];
+  generated_at: string;
+}
+
+export interface SyncOutboxItem {
+  id: string;
+  user_id: string;
+  entity: string;
+  action: 'INSERT' | 'UPDATE' | 'DELETE';
+  record_id: string;
+  payload: Record<string, any>;
+  client_timestamp: string;
+  server_received_at?: string;
+}
+
+export interface CoursePrerequisite {
+  id: string;
+  user_id: string;
+  course_id: string;
+  prerequisite_course_id: string;
+  created_at: string;
+}
+

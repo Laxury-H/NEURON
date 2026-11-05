@@ -328,6 +328,23 @@
   color: #FAFAFA !important;
 }
 
+.fc-event.fc-event-conflict {
+  background: repeating-linear-gradient(45deg, #171717, #171717 4px, #404040 4px, #404040 8px) !important;
+  border: 1.5px solid #FFFFFF !important;
+  color: #FFFFFF !important;
+  font-weight: 600 !important;
+}
+.dark .fc-event.fc-event-conflict {
+  background: repeating-linear-gradient(45deg, #000000, #000000 4px, #262626 4px, #262626 8px) !important;
+  border: 1.5px solid #FAFAFA !important;
+  color: #FAFAFA !important;
+  font-weight: 600 !important;
+}
+.fc-event.fc-event-completed {
+  text-decoration: line-through !important;
+  opacity: 0.65 !important;
+}
+
 /* =========================================================================
    PURE 1-BIT MONOCHROME CONTRAST MODE (#000000 & #FFFFFF ONLY)
    ========================================================================= */
@@ -581,4 +598,15 @@ html[data-pure-bw="true"].dark [class*="badge"] {
 .pure-bw.dark .fc-daygrid-event-dot {
   border-color: #FFFFFF !important;
 }
+.pure-bw .fc-event.fc-event-conflict {
+  background: repeating-linear-gradient(45deg, #000000, #000000 3px, #FFFFFF 3px, #FFFFFF 6px) !important;
+  border: 2px solid #000000 !important;
+  color: #000000 !important;
+}
+.pure-bw.dark .fc-event.fc-event-conflict {
+  background: repeating-linear-gradient(45deg, #FFFFFF, #FFFFFF 3px, #000000 3px, #000000 6px) !important;
+  border: 2px solid #FFFFFF !important;
+  color: #FFFFFF !important;
+}
+
 

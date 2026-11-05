@@ -24,6 +24,7 @@ import {
   INITIAL_GRAPH_LAYOUTS,
 } from './mock-data.ts';
 import { createClient, isSupabaseConfigured } from '../supabase/client.ts';
+import { BlobStorage } from './blob-storage.ts';
 
 const STORAGE_KEY = 'neuron_store_v1';
 
@@ -598,6 +599,25 @@ export const DataRepository = {
   },
 
   async getPerson(id: string): Promise<Person | null> {
+    if (isSupabaseConfigured()) {
+      const supabase = createClient();
+      if (supabase) {
+        const { data: p, error } = await supabase
+          .from('people')
+          .select('*, course_people(*, courses(*))')
+          .eq('id', id)
+          .maybeSingle();
+        if (!error && p) {
+          const associatedCourses = (p.course_people || []).map((cp: any) => ({
+            id: cp.course_id,
+            course_code: cp.courses?.course_code || '',
+            course_name: cp.courses?.course_name || '',
+            relationship_type: cp.relationship_type,
+          }));
+          return { ...p, associated_courses: associatedCourses };
+        }
+      }
+    }
     const store = loadStore();
     const p = store.people.find((person) => person.id === id);
     if (!p) return null;
@@ -824,6 +844,24 @@ export const DataRepository = {
   },
 
   async getDocument(id: string): Promise<DocumentItem | null> {
+    if (isSupabaseConfigured()) {
+      const supabase = createClient();
+      if (supabase) {
+        const { data: d, error } = await supabase
+          .from('documents')
+          .select('*, course_documents(*, courses(*))')
+          .eq('id', id)
+          .maybeSingle();
+        if (!error && d) {
+          const associatedCourses = (d.course_documents || []).map((cd: any) => ({
+            id: cd.course_id,
+            course_code: cd.courses?.course_code || '',
+            course_name: cd.courses?.course_name || '',
+          }));
+          return { ...d, associated_courses: associatedCourses };
+        }
+      }
+    }
     const store = loadStore();
     const doc = store.documents.find((d) => d.id === id);
     if (!doc) return null;
@@ -910,6 +948,9 @@ export const DataRepository = {
       });
     }
     saveStore(store);
+    if (params.file_content_base64) {
+      await BlobStorage.saveBlob(newDoc.id, params.file_content_base64).catch(() => {});
+    }
     return newDoc;
   },
 
@@ -1017,7 +1058,15 @@ export const DataRepository = {
     store.documents = store.documents.filter((d) => d.id !== id);
     store.course_documents = store.course_documents.filter((cd) => cd.document_id !== id);
     saveStore(store);
+    await BlobStorage.deleteBlob(id).catch(() => {});
     return true;
+  },
+
+  async getDocumentBlob(documentId: string): Promise<Blob | ArrayBuffer | string | null> {
+    const b = await BlobStorage.getBlob(documentId);
+    if (b) return b;
+    const doc = await this.getDocument(documentId);
+    return doc?.download_url || null;
   },
 
   /* ------------------------------------------------------------------------
@@ -1135,6 +1184,23 @@ export const DataRepository = {
     id: string,
     params: Partial<Omit<CalendarEvent, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'course'>>
   ): Promise<CalendarEvent | null> {
+    const store = loadStore();
+    const idx = store.events.findIndex((e) => e.id === id);
+    if (idx === -1) return null;
+
+    // Verify course-semester integrity
+    if (params.course_id !== undefined || params.semester_id !== undefined) {
+      const targetSemesterId = params.semester_id || store.events[idx].semester_id;
+      const targetCourseId = params.course_id !== undefined ? params.course_id : store.events[idx].course_id;
+
+      if (targetCourseId) {
+        const course = store.courses.find((c) => c.id === targetCourseId);
+        if (!course || course.semester_id !== targetSemesterId) {
+          throw new Error('Course does not belong to the selected semester');
+        }
+      }
+    }
+
     if (isSupabaseConfigured()) {
       const supabase = createClient();
       if (supabase) {
@@ -1147,9 +1213,7 @@ export const DataRepository = {
         if (!error && data) return data;
       }
     }
-    const store = loadStore();
-    const idx = store.events.findIndex((e) => e.id === id);
-    if (idx === -1) return null;
+
     const updated = {
       ...store.events[idx],
       ...params,
@@ -1306,11 +1370,55 @@ export const DataRepository = {
     return JSON.stringify(store, null, 2);
   },
 
+  async exportFullArchive(): Promise<string> {
+    const store = loadStore();
+    const blobs: Record<string, string> = {};
+    for (const doc of store.documents) {
+      try {
+        const b = await BlobStorage.getBlob(doc.id);
+        if (typeof b === "string") {
+          blobs[doc.id] = b;
+        } else if (doc.download_url) {
+          blobs[doc.id] = doc.download_url;
+        }
+      } catch {
+        if (doc.download_url) {
+          blobs[doc.id] = doc.download_url;
+        }
+      }
+    }
+
+    return JSON.stringify(
+      {
+        ...store,
+        _blobs: blobs,
+        _manifest: {
+          app: "NEURON",
+          version: "2.0.0",
+          exported_at: new Date().toISOString(),
+          storage_engine: "indexeddb+localstorage",
+          blob_count: Object.keys(blobs).length,
+        },
+      },
+      null,
+      2
+    );
+  },
+
   importAllData(jsonString: string): boolean {
     try {
       const parsed = JSON.parse(jsonString);
       if (parsed && Array.isArray(parsed.semesters) && Array.isArray(parsed.courses)) {
-        saveStore(parsed);
+        if (parsed._blobs && typeof parsed._blobs === "object") {
+          for (const [docId, blobVal] of Object.entries(parsed._blobs)) {
+            if (typeof blobVal === "string") {
+              BlobStorage.saveBlob(docId, blobVal).catch(() => {});
+            }
+          }
+        }
+        delete (parsed as Record<string, any>)._manifest;
+        delete (parsed as Record<string, any>)._blobs;
+        saveStore(parsed as LocalStoreState);
         return true;
       }
       return false;

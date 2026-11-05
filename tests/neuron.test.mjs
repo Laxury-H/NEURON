@@ -267,6 +267,20 @@ test('8. Calendar Course-Semester Integrity Rule Enforcement', async () => {
     assert.ok(err.message.includes('Course does not belong to the selected semester'));
   }
   assert.equal(threw, true, 'Creating event with mismatched course semester must be rejected');
+
+  // Verify updating event with mismatched course semester is also rejected
+  const events = await DataRepository.getEvents('sem-1');
+  assert.ok(events.length > 0);
+  let updateThrew = false;
+  try {
+    await DataRepository.updateEvent(events[0].id, {
+      course_id: 'c-ee4020', // belongs to sem-2!
+    });
+  } catch (err) {
+    updateThrew = true;
+    assert.ok(err.message.includes('Course does not belong to the selected semester'));
+  }
+  assert.equal(updateThrew, true, 'Updating event with mismatched course semester must be rejected');
 });
 
 test('9. Calendar Weekly Recurrence Rule Parsing and Integrity', async () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Dialog,
@@ -29,6 +29,68 @@ interface GlobalSearchProps {
   onSelect?: () => void;
 }
 
+interface AcademicQueryIntent {
+  title: string;
+  subtitle: string;
+  url: string;
+}
+
+function parseAcademicIntent(query: string): AcademicQueryIntent | null {
+  const q = query.toLowerCase().trim();
+  if (!q) return null;
+
+  if (
+    q.startsWith("?") ||
+    q.includes("when") ||
+    q.includes("exam") ||
+    q.includes("due") ||
+    q.includes("deadline") ||
+    q.includes("schedule")
+  ) {
+    const isExam = q.includes("exam");
+    const isDeadline = q.includes("due") || q.includes("deadline");
+    return {
+      title: isExam
+        ? "Ask NEURON: View Upcoming Exams"
+        : isDeadline
+        ? "Ask NEURON: View Assignment Deadlines"
+        : "Ask NEURON: Open Semester Calendar",
+      subtitle: "Filter calendar schedule directly",
+      url: "/app/calendar",
+    };
+  }
+
+  if (
+    q.startsWith("who") ||
+    q.includes("expert") ||
+    q.includes("knows") ||
+    q.includes("teammate") ||
+    q.includes("partner")
+  ) {
+    const topic = q
+      .replace(/who knows|expert in|teammate for|partner for|\?|who/g, "")
+      .trim();
+    return {
+      title: topic
+        ? `Ask NEURON: Find classmates or experts in "${topic}"`
+        : "Ask NEURON: Browse Academic Contact Directory",
+      subtitle: "Locate skills, research areas, and study partners",
+      url: "/app/semesters",
+    };
+  }
+
+  return null;
+}
+
+function extractSearchTerm(query: string): string {
+  let q = query.replace(/^\?\s*/, "").trim();
+  q = q.replace(
+    /^(who knows|who is expert in|who is|expert in|experts in|teammate for|partner for|when is|when are|what is|find)\s+/i,
+    ""
+  );
+  return q.replace(/[?!.]+$/, "").trim();
+}
+
 export function GlobalSearch({ open, onOpenChange, onSelect }: GlobalSearchProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -36,6 +98,8 @@ export function GlobalSearch({ open, onOpenChange, onSelect }: GlobalSearchProps
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
+
+  const intent = useMemo(() => parseAcademicIntent(query), [query]);
 
   useEffect(() => {
     if (!open) {
@@ -56,7 +120,8 @@ export function GlobalSearch({ open, onOpenChange, onSelect }: GlobalSearchProps
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const res = await DataRepository.globalSearch(query);
+        const cleaned = extractSearchTerm(query);
+        const res = await DataRepository.globalSearch(cleaned || query.trim());
         setResults(res);
         setSelectedIndex(0);
       } finally {
@@ -67,6 +132,8 @@ export function GlobalSearch({ open, onOpenChange, onSelect }: GlobalSearchProps
     return () => clearTimeout(timer);
   }, [query]);
 
+  const totalItems = (intent ? 1 : 0) + results.length;
+
   const handleSelect = (url: string) => {
     onOpenChange(false);
     if (onSelect) onSelect();
@@ -74,18 +141,23 @@ export function GlobalSearch({ open, onOpenChange, onSelect }: GlobalSearchProps
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (results.length === 0) return;
+    if (totalItems === 0) return;
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setSelectedIndex((prev) => (prev + 1) % results.length);
+      setSelectedIndex((prev) => (prev + 1) % totalItems);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setSelectedIndex((prev) => (prev - 1 + results.length) % results.length);
+      setSelectedIndex((prev) => (prev - 1 + totalItems) % totalItems);
     } else if (e.key === "Enter") {
       e.preventDefault();
-      if (results[selectedIndex]) {
-        handleSelect(results[selectedIndex].url);
+      if (intent && selectedIndex === 0) {
+        handleSelect(results[0]?.url || intent.url);
+      } else {
+        const resIdx = intent ? selectedIndex - 1 : selectedIndex;
+        if (results[resIdx]) {
+          handleSelect(results[resIdx].url);
+        }
       }
     }
   };
@@ -118,8 +190,8 @@ export function GlobalSearch({ open, onOpenChange, onSelect }: GlobalSearchProps
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search semesters, courses, people, files, events..."
-            className="border-0 shadow-none focus-visible:ring-0 text-sm h-12 px-0 bg-transparent"
+            placeholder="Search semesters, courses, people, files, events... or type '?'"
+            className="border-0 shadow-none focus-visible:ring-0 text-sm h-12 px-0 bg-transparent font-sans"
             autoFocus
           />
           <kbd className="hidden sm:inline-block pointer-events-none select-none rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
@@ -134,7 +206,44 @@ export function GlobalSearch({ open, onOpenChange, onSelect }: GlobalSearchProps
             </div>
           )}
 
-          {!loading && query && results.length === 0 && (
+          {/* Ask NEURON Action Card */}
+          {intent && (
+            <button
+              onClick={() => handleSelect(results[0]?.url || intent.url)}
+              onMouseEnter={() => setSelectedIndex(0)}
+              className={`w-full text-left flex items-center justify-between p-2.5 rounded-sm transition-colors text-xs border ${
+                selectedIndex === 0
+                  ? "bg-accent border-foreground font-medium"
+                  : "bg-muted/40 border-border hover:bg-muted"
+              }`}
+            >
+              <div className="flex items-center space-x-3 overflow-hidden">
+                <div className="h-7 w-7 rounded-sm bg-foreground text-background flex items-center justify-center shrink-0 font-mono text-xs font-bold">
+                  AI
+                </div>
+                <div className="truncate">
+                  <p className="font-semibold text-foreground truncate">
+                    {intent.title}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {intent.subtitle}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-1.5 shrink-0 ml-2">
+                <Badge variant="default" className="text-[9px] font-mono">
+                  ACTION
+                </Badge>
+                {selectedIndex === 0 && (
+                  <kbd className="hidden sm:inline font-mono text-[9px] bg-muted px-1 rounded border border-border">
+                    ↵
+                  </kbd>
+                )}
+              </div>
+            </button>
+          )}
+
+          {!loading && query && !intent && results.length === 0 && (
             <div className="p-6 text-center text-xs text-muted-foreground">
               No results found for &ldquo;{query}&rdquo;
             </div>
@@ -177,20 +286,41 @@ export function GlobalSearch({ open, onOpenChange, onSelect }: GlobalSearchProps
                   <ArrowRight className="h-3 w-3 text-muted-foreground" />
                 </button>
               </div>
-              <div className="text-[10px] text-muted-foreground text-center pt-2 border-t border-border/50">
-                Type keywords like <span className="font-mono text-foreground">Power System</span>, <span className="font-mono text-foreground">Newton-Raphson</span>, or <span className="font-mono text-foreground">Midterm</span>
+
+              {/* Natural Language Query Examples */}
+              <div className="pt-2 border-t border-border/50 space-y-1.5">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground px-1">
+                  Ask NEURON (Natural Queries)
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    "when is my next exam?",
+                    "who knows Newton-Raphson?",
+                    "Power System",
+                    "Midterm",
+                  ].map((example) => (
+                    <button
+                      key={example}
+                      onClick={() => setQuery(example)}
+                      className="px-2 py-0.5 rounded-sm border border-border bg-background text-[11px] text-muted-foreground hover:text-foreground font-mono transition-colors"
+                    >
+                      {example}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
 
           {!loading &&
             results.map((result, idx) => {
-              const isSelected = idx === selectedIndex;
+              const itemIdx = intent ? idx + 1 : idx;
+              const isSelected = itemIdx === selectedIndex;
               return (
                 <button
                   key={`${result.type}-${result.id}`}
                   onClick={() => handleSelect(result.url)}
-                  onMouseEnter={() => setSelectedIndex(idx)}
+                  onMouseEnter={() => setSelectedIndex(itemIdx)}
                   className={`w-full text-left flex items-center justify-between p-2.5 rounded-sm transition-colors text-xs group ${
                     isSelected
                       ? "bg-accent text-accent-foreground font-medium"
@@ -223,7 +353,7 @@ export function GlobalSearch({ open, onOpenChange, onSelect }: GlobalSearchProps
             })}
         </div>
 
-        {results.length > 0 && (
+        {totalItems > 0 && (
           <div className="border-t border-border px-3 py-1.5 flex items-center justify-between text-[10px] font-mono text-muted-foreground bg-muted/40">
             <span>↑↓ Navigate</span>
             <span>↵ Select</span>
