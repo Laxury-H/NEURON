@@ -11,11 +11,11 @@ test('1. Semester Management — Real DataRepository CRUD & Ordering', async () 
   DataRepository.resetToDefaultData();
 
   const initialSemesters = await DataRepository.getSemesters();
-  assert.ok(initialSemesters.length >= 2, 'Should load initial semesters');
+  assert.ok(initialSemesters.length >= 1, 'Should load initial semesters');
 
   const activeSem = initialSemesters.find((s) => s.is_active);
   assert.ok(activeSem, 'Active semester should exist');
-  assert.equal(activeSem.name, 'Semester 1');
+  assert.equal(activeSem.name, 'Học kỳ 2026.1');
 
   // Create new semester
   const created = await DataRepository.createSemester({
@@ -99,7 +99,7 @@ test('3. Course Neural Graph — Three Primary Nodes Structure & Data Loader', a
   assert.ok(graphData.course);
 
   // Surrounding Node 1: Relationships
-  assert.ok(graphData.people.length >= 3, 'EE4010 should have connected people');
+  assert.ok(graphData.people.length >= 1, 'EE4010 should have connected faculty');
   for (const person of graphData.people) {
     assert.ok(person.course_relationship, 'Person in course graph must have course_relationship data');
     assert.equal(person.course_relationship.course_id, courseId);
@@ -123,16 +123,6 @@ test('3. Course Neural Graph — Three Primary Nodes Structure & Data Loader', a
 test('4. Relationships — Multi-Course Linking, Context Notes & Contact Links', async () => {
   DataRepository.resetToDefaultData();
 
-  const personId = 'p-2'; // Pham Minh Tuan
-  const person = await DataRepository.getPerson(personId);
-  assert.ok(person, 'Pham Minh Tuan should exist');
-  assert.ok(person.associated_courses.length >= 2, 'Pham Minh Tuan should be connected to multiple courses');
-
-  const c1 = person.associated_courses.find((ac) => ac.id === 'c-ee4010');
-  const c2 = person.associated_courses.find((ac) => ac.id === 'c-ee3101');
-  assert.ok(c1, 'Should be linked to EE4010');
-  assert.ok(c2, 'Should be linked to EE3101');
-
   // Create new contact with contact links (Facebook, Zalo)
   const newContact = await DataRepository.createPerson({
     full_name: 'Vu Thi Lan',
@@ -148,24 +138,39 @@ test('4. Relationships — Multi-Course Linking, Context Notes & Contact Links',
   assert.ok(newContact.id);
   assert.equal(newContact.contact_links.zalo, 'lanvu_ee');
 
-  // Link to course
-  const link = await DataRepository.linkPersonToCourse({
+  // Link to multiple courses (c-ee4010 and c-ee3101)
+  const link1 = await DataRepository.linkPersonToCourse({
     course_id: 'c-ee4010',
     person_id: newContact.id,
     relationship_type: 'Project teammate',
     knowledge_topics: ['SCADA Integration'],
     context_note: 'Working on substation SCADA interface',
   });
-  assert.ok(link);
-  assert.equal(link.relationship_type, 'Project teammate');
+  assert.ok(link1);
+
+  const link2 = await DataRepository.linkPersonToCourse({
+    course_id: 'c-ee3101',
+    person_id: newContact.id,
+    relationship_type: 'Classmate',
+    knowledge_topics: ['Solar PV Array'],
+    context_note: 'Solar lab partner',
+  });
+  assert.ok(link2);
+
+  const person = await DataRepository.getPerson(newContact.id);
+  assert.ok(person);
+  assert.equal(person.associated_courses.length, 2, 'Should be linked to 2 courses');
+  assert.ok(person.associated_courses.some((ac) => ac.id === 'c-ee4010'));
+  assert.ok(person.associated_courses.some((ac) => ac.id === 'c-ee3101'));
 
   // Unlink from course without deleting person
   const unlinked = await DataRepository.unlinkPersonFromCourse('c-ee4010', newContact.id);
   assert.equal(unlinked, true);
 
-  // Person must still exist in global contact library
+  // Person must still exist in global contact library with 1 remaining course
   const contactStillExists = await DataRepository.getPerson(newContact.id);
   assert.ok(contactStillExists, 'Unlinked person must remain in contact directory');
+  assert.equal(contactStillExists.associated_courses.length, 1);
 });
 
 test('5. Documents — Upload, Course Linking, and Global Library Preservation', async () => {
@@ -231,8 +236,41 @@ test('6. Graph Layout Persistence — Position & Viewport Restoration', async ()
 test('7. Semester Calendar — Unified Aggregation across Categories', async () => {
   DataRepository.resetToDefaultData();
 
+  // Initial authentic schedule has 16 real class sessions
+  const initialEvents = await DataRepository.getEvents('sem-1');
+  assert.ok(initialEvents.length >= 10, 'Should load authentic schedule events');
+  assert.ok(initialEvents.every((e) => e.event_type === 'CLASS'));
+
+  // Create additional event types to verify multi-category aggregation
+  await DataRepository.createEvent({
+    semester_id: 'sem-1',
+    course_id: 'c-ee4010',
+    title: 'Midterm Examination EE4010E',
+    event_type: 'EXAM',
+    start_at: '2026-11-04T09:00:00+07:00',
+    end_at: '2026-11-04T11:00:00+07:00',
+  });
+
+  await DataRepository.createEvent({
+    semester_id: 'sem-1',
+    course_id: 'c-ee4010',
+    title: 'Lab Report Submission',
+    event_type: 'DEADLINE',
+    start_at: '2026-11-15T23:59:00+07:00',
+    end_at: '2026-11-15T23:59:00+07:00',
+  });
+
+  await DataRepository.createEvent({
+    semester_id: 'sem-1',
+    course_id: null,
+    title: 'Study Group Review',
+    event_type: 'PERSONAL',
+    start_at: '2026-11-10T19:00:00+07:00',
+    end_at: '2026-11-10T21:00:00+07:00',
+  });
+
   const semesterEvents = await DataRepository.getEvents('sem-1');
-  assert.ok(semesterEvents.length >= 4, 'Should aggregate all semester events');
+  assert.ok(semesterEvents.length >= 13, 'Should aggregate all semester events');
 
   const types = new Set(semesterEvents.map((e) => e.event_type));
   assert.ok(types.has('CLASS'), 'Should aggregate CLASS events');
@@ -256,12 +294,29 @@ test('7. Semester Calendar — Unified Aggregation across Categories', async () 
 test('8. Calendar Course-Semester Integrity Rule Enforcement', async () => {
   DataRepository.resetToDefaultData();
 
-  // Attempt to associate a course belonging to Semester 2 (c-ee4020 is in sem-2) with an event in Semester 1
+  // Create an isolated secondary semester & course to test cross-semester rejection
+  const otherSem = await DataRepository.createSemester({
+    name: 'Temporary Semester Term',
+    academic_year: '2027',
+    start_date: '2027-02-01',
+    end_date: '2027-06-30',
+    sort_order: 2,
+    is_active: false,
+  });
+  const otherCourse = await DataRepository.createCourse({
+    semester_id: otherSem.id,
+    course_code: 'EE9999',
+    course_name: 'Other Term Course',
+    lecturer: 'Test Lecturer',
+    credits: 3,
+  });
+
+  // Attempt to associate a course belonging to otherSem with an event in sem-1
   let threw = false;
   try {
     await DataRepository.createEvent({
       semester_id: 'sem-1',
-      course_id: 'c-ee4020', // c-ee4020 belongs to sem-2!
+      course_id: otherCourse.id,
       title: 'Illegal Cross-Semester Event',
       event_type: 'CLASS',
       start_at: '2026-09-10T08:00:00+07:00',
@@ -279,7 +334,7 @@ test('8. Calendar Course-Semester Integrity Rule Enforcement', async () => {
   let updateThrew = false;
   try {
     await DataRepository.updateEvent(events[0].id, {
-      course_id: 'c-ee4020', // belongs to sem-2!
+      course_id: otherCourse.id,
     });
   } catch (err) {
     updateThrew = true;
@@ -318,20 +373,20 @@ test('10. Universal Global Search — Full Indexing across All Domains', async (
   const courseResults = await DataRepository.globalSearch('Power System');
   assert.ok(courseResults.some((r) => r.type === 'course' && r.title.includes('EE4010')));
 
-  // Person by Name Search
+  // Person by Name Search (both with & without accents)
   const personResults = await DataRepository.globalSearch('Nguyen Duc Huy');
-  assert.ok(personResults.some((r) => r.type === 'person' && r.title.includes('Nguyen Duc Huy')));
+  assert.ok(personResults.some((r) => r.type === 'person' && r.title.includes('Nguyễn Đức Huy')));
 
   // Knowledge Topic Search ("Newton-Raphson" is in course_people knowledge_topics)
   const topicResults = await DataRepository.globalSearch('Newton-Raphson');
   assert.ok(topicResults.length >= 1, 'Should find person linked with Newton-Raphson knowledge topic');
 
   // Document Search
-  const docResults = await DataRepository.globalSearch('AdmittanceMatrix');
+  const docResults = await DataRepository.globalSearch('PSA');
   assert.ok(docResults.some((r) => r.type === 'document'));
 
   // Event Search
-  const eventResults = await DataRepository.globalSearch('Midterm');
+  const eventResults = await DataRepository.globalSearch('Truyền thông công nghiệp');
   assert.ok(eventResults.some((r) => r.type === 'event'));
 
   // Concept Search

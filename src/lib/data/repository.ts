@@ -30,12 +30,13 @@ import {
 import { createClient, isSupabaseConfigured } from '../supabase/client.ts';
 import { BlobStorage } from './blob-storage.ts';
 
-const STORAGE_KEY = 'neuron_store_v2026_1_balanced';
+const STORAGE_KEY = 'neuron_store_v2026_1_pure_real';
 const LEGACY_STORAGE_KEYS = [
   'neuron_store_v1',
   'neuron_store_v2026_1',
   'neuron_store_v2026_1_real_docs',
   'neuron_store_v2026_1_unified',
+  'neuron_store_v2026_1_balanced',
 ];
 
 interface LocalStoreState {
@@ -90,22 +91,34 @@ function loadStore(): LocalStoreState {
       return initial;
     }
     const parsed = JSON.parse(raw);
-    // Auto-migrate if store does not contain the complete 2026.1 timetable or has legacy document mapping
+    // Auto-migrate if store contains any legacy mock data artifacts or outdated structure
+    const hasLegacySemesters = parsed.semesters && parsed.semesters.some(
+      (s: Semester) => s.id === 'sem-2' || s.name === 'Semester 2' || s.name === 'Semester 1'
+    );
     const hasLegacyDocCollision = parsed.course_documents && parsed.course_documents.some(
       (cd: CourseDocument) => cd.course_id === 'c-ee4020'
     );
-    const hasLegacyLecturer = parsed.people && parsed.people.some(
-      (p: Person) => p.full_name === 'Nguyen Van A'
+    const hasLegacyMockCourse = parsed.courses && parsed.courses.some(
+      (c: Course) => c.id === 'c-ee4020'
     );
-    const hasLegacyLayout = parsed.layouts?.['c-ee4010']?.positions?.course?.x === 420;
+    const hasLegacyMockPeople = parsed.people && parsed.people.some(
+      (p: Person) => p.id === 'p-2' || p.id === 'p-3' || p.id === 'p-5' || p.id === 'p-8' ||
+        p.full_name === 'Nguyen Van A' || p.full_name === 'Pham Minh Tuan' || p.full_name === 'Le Thi Mai'
+    );
+    const hasLegacyMockEvents = parsed.events && parsed.events.some(
+      (ev: CalendarEvent) => ev.id === 'ev-3' || ev.id === 'ev-4' || ev.id === 'ev-5'
+    );
 
     if (
       !parsed.courses ||
+      parsed.courses.length < 9 ||
       !parsed.courses.some((c: Course) => c.course_code === 'EE3600E') ||
       !parsed.concepts ||
+      hasLegacySemesters ||
       hasLegacyDocCollision ||
-      hasLegacyLecturer ||
-      hasLegacyLayout
+      hasLegacyMockCourse ||
+      hasLegacyMockPeople ||
+      hasLegacyMockEvents
     ) {
       const initial = getInitialStore();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
@@ -1371,20 +1384,35 @@ export const DataRepository = {
   },
 
   /* ------------------------------------------------------------------------
-     GLOBAL SEARCH (Semesters, Courses, People, Documents, Events)
+     GLOBAL SEARCH (Semesters, Courses, People, Documents, Events, Concepts)
      ------------------------------------------------------------------------ */
   async globalSearch(query: string): Promise<GlobalSearchResult[]> {
     if (!query || query.trim().length === 0) return [];
     const q = query.trim().toLowerCase();
+    const nq = q
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'd');
+
+    const matchesSearch = (text: string | null | undefined): boolean => {
+      if (!text) return false;
+      const lower = text.toLowerCase();
+      if (lower.includes(q)) return true;
+      const normalized = lower
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'd');
+      return normalized.includes(nq);
+    };
+
     const store = loadStore();
     const results: GlobalSearchResult[] = [];
 
     // Search Semesters
     for (const sem of store.semesters) {
-      if (
-        sem.name.toLowerCase().includes(q) ||
-        sem.academic_year.toLowerCase().includes(q)
-      ) {
+      if (matchesSearch(sem.name) || matchesSearch(sem.academic_year)) {
         results.push({
           id: sem.id,
           type: 'semester',
@@ -1398,10 +1426,10 @@ export const DataRepository = {
     // Search Courses
     for (const c of store.courses) {
       if (
-        c.course_code.toLowerCase().includes(q) ||
-        c.course_name.toLowerCase().includes(q) ||
-        (c.lecturer && c.lecturer.toLowerCase().includes(q)) ||
-        (c.description && c.description.toLowerCase().includes(q))
+        matchesSearch(c.course_code) ||
+        matchesSearch(c.course_name) ||
+        matchesSearch(c.lecturer) ||
+        matchesSearch(c.description)
       ) {
         results.push({
           id: c.id,
@@ -1417,26 +1445,25 @@ export const DataRepository = {
     for (const p of store.people) {
       const courseLinks = store.course_people.filter((cp) => cp.person_id === p.id);
       const matchesTopic = courseLinks.some((cp) =>
-        cp.knowledge_topics?.some((kt) => kt.toLowerCase().includes(q)) ||
-        (cp.context_note && cp.context_note.toLowerCase().includes(q))
+        cp.knowledge_topics?.some((kt) => matchesSearch(kt)) ||
+        matchesSearch(cp.context_note)
       );
       const matchesContact = Object.values(p.contact_links || {}).some(
-        (val) => typeof val === 'string' && val.toLowerCase().includes(q)
+        (val) => typeof val === 'string' && matchesSearch(val)
       );
 
       if (
-        p.full_name.toLowerCase().includes(q) ||
-        (p.nickname && p.nickname.toLowerCase().includes(q)) ||
-        (p.email && p.email.toLowerCase().includes(q)) ||
-        (p.phone && p.phone.toLowerCase().includes(q)) ||
-        (p.class_name && p.class_name.toLowerCase().includes(q)) ||
-        (p.major && p.major.toLowerCase().includes(q)) ||
-        p.skills.some((sk) => sk.toLowerCase().includes(q)) ||
-        (p.notes && p.notes.toLowerCase().includes(q)) ||
+        matchesSearch(p.full_name) ||
+        matchesSearch(p.nickname) ||
+        matchesSearch(p.email) ||
+        matchesSearch(p.phone) ||
+        matchesSearch(p.class_name) ||
+        matchesSearch(p.major) ||
+        p.skills.some((sk) => matchesSearch(sk)) ||
+        matchesSearch(p.notes) ||
         matchesTopic ||
         matchesContact
       ) {
-        // Link to first associated course if any, or general contacts
         const firstLink = store.course_people.find((cp) => cp.person_id === p.id);
         const course = firstLink ? store.courses.find((c) => c.id === firstLink.course_id) : null;
         results.push({
@@ -1456,9 +1483,9 @@ export const DataRepository = {
     // Search Documents
     for (const doc of store.documents) {
       if (
-        doc.original_file_name.toLowerCase().includes(q) ||
-        doc.category.toLowerCase().includes(q) ||
-        (doc.description && doc.description.toLowerCase().includes(q))
+        matchesSearch(doc.original_file_name) ||
+        matchesSearch(doc.category) ||
+        matchesSearch(doc.description)
       ) {
         const firstLink = store.course_documents.find((cd) => cd.document_id === doc.id);
         const course = firstLink ? store.courses.find((c) => c.id === firstLink.course_id) : null;
@@ -1477,9 +1504,9 @@ export const DataRepository = {
     // Search Events
     for (const ev of store.events) {
       if (
-        ev.title.toLowerCase().includes(q) ||
-        (ev.description && ev.description.toLowerCase().includes(q)) ||
-        (ev.location && ev.location.toLowerCase().includes(q))
+        matchesSearch(ev.title) ||
+        matchesSearch(ev.description) ||
+        matchesSearch(ev.location)
       ) {
         results.push({
           id: ev.id,
@@ -1494,9 +1521,9 @@ export const DataRepository = {
     // Search Concepts
     for (const c of store.concepts || []) {
       if (
-        c.name.toLowerCase().includes(q) ||
-        c.slug.toLowerCase().includes(q) ||
-        (c.description && c.description.toLowerCase().includes(q))
+        matchesSearch(c.name) ||
+        matchesSearch(c.slug) ||
+        matchesSearch(c.description)
       ) {
         const link = (store.course_concepts || []).find((cc) => cc.concept_id === c.id);
         const course = link ? store.courses.find((x) => x.id === link.course_id) : null;
