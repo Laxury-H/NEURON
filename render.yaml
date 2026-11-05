@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: neuron
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install -g pnpm && pnpm install && pnpm build
+    startCommand: npx next start -p $PORT -H 0.0.0.0
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: NEXT_TELEMETRY_DISABLED
+        value: 1
