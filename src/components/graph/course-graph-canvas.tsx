@@ -16,7 +16,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import { Course, Person, DocumentItem, DocumentCategory, CourseGraphLayout, RelationshipType } from "@/types/database";
+import { Course, Person, DocumentItem, DocumentCategory, CourseGraphLayout, RelationshipType, Concept } from "@/types/database";
 import { DataRepository } from "@/lib/data/repository";
 import { useTheme } from "@/components/theme-provider";
 import { CourseNode } from "./nodes/course-node";
@@ -82,6 +82,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
   const [course, setCourse] = useState<Course | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [concepts, setConcepts] = useState<Concept[]>([]);
   const [allPeople, setAllPeople] = useState<Person[]>([]);
   const [allDocuments, setAllDocuments] = useState<DocumentItem[]>([]);
   const [savedLayout, setSavedLayout] = useState<CourseGraphLayout | null>(null);
@@ -138,6 +139,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         setCourse(data.course);
         setPeople(data.people);
         setDocuments(data.documents);
+        setConcepts(data.concepts || []);
         setAllPeople(data.allPeople);
         setAllDocuments(data.allDocuments);
         setSavedLayout(data.layout);
@@ -256,7 +258,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
     });
 
     // Calculate radial concentric coordinates for leaf nodes
-    const concentric = computeConcentricLayout(coursePos, people.length, documents.length);
+    const concentric = computeConcentricLayout(coursePos, people.length, documents.length, concepts.length);
 
     // 4. Render Person Nodes if Relationships is expanded
     if (expandRelationships) {
@@ -347,12 +349,49 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
       });
     }
 
+    // 6. Render Concept Nodes (North Arc / Top Sector)
+    concepts.forEach((concept, index) => {
+      const nodeId = `concept-${concept.id}`;
+      const defaultX = concentric.concepts[index]?.x ?? (coursePos.x - 120 + index * 120);
+      const defaultY = concentric.concepts[index]?.y ?? (coursePos.y - 180);
+      const cPos = positions[nodeId] || { x: defaultX, y: defaultY };
+
+      const matchesSearch =
+        !graphSearchQuery ||
+        concept.name.toLowerCase().includes(graphSearchQuery.toLowerCase()) ||
+        (concept.description && concept.description.toLowerCase().includes(graphSearchQuery.toLowerCase()));
+
+      newNodes.push({
+        id: nodeId,
+        type: "conceptNode",
+        position: cPos,
+        data: {
+          id: concept.id,
+          label: concept.name,
+          description: concept.description,
+          courseCount: 1,
+          docCount: 0,
+        },
+        style: { opacity: matchesSearch ? 1 : 0.3 },
+      });
+
+      newEdges.push({
+        id: `edge-course-${concept.id}`,
+        source: "course",
+        target: nodeId,
+        type: "smoothstep",
+        animated: true,
+        style: { stroke: centralEdgeStroke, strokeWidth: pureBw ? 2 : 1.5 },
+      });
+    });
+
     setNodes(newNodes);
     setEdges(newEdges);
   }, [
     course,
     people,
     documents,
+    concepts,
     expandRelationships,
     expandFiles,
     savedLayout,

@@ -108,11 +108,16 @@ test('3. Course Neural Graph — Three Primary Nodes Structure & Data Loader', a
   // Surrounding Node 2: Files
   assert.ok(graphData.documents.length >= 3, 'EE4010 should have connected documents');
 
+  // Surrounding Node 3: Concepts
+  assert.ok(graphData.concepts.length >= 3, 'EE4010 should have connected concepts');
+  assert.ok(graphData.concepts.some((c) => c.id === 'conc-y-bus'), 'EE4010 should link to conc-y-bus');
+
   // Layout positions
   assert.ok(graphData.layout, 'EE4010 should have saved layout');
   assert.ok(graphData.layout.positions['course']);
   assert.ok(graphData.layout.positions['relationships']);
   assert.ok(graphData.layout.positions['files']);
+  assert.ok(graphData.layout.positions['concept-conc-y-bus']);
 });
 
 test('4. Relationships — Multi-Course Linking, Context Notes & Contact Links', async () => {
@@ -328,6 +333,10 @@ test('10. Universal Global Search — Full Indexing across All Domains', async (
   // Event Search
   const eventResults = await DataRepository.globalSearch('Midterm');
   assert.ok(eventResults.some((r) => r.type === 'event'));
+
+  // Concept Search
+  const conceptResults = await DataRepository.globalSearch('Admittance Matrix');
+  assert.ok(conceptResults.some((r) => r.type === 'concept'), 'Should find concept in global search');
 });
 
 test('11. Data Backup Export, Recovery & Schema Validation', async () => {
@@ -343,6 +352,8 @@ test('11. Data Backup Export, Recovery & Schema Validation', async () => {
   assert.ok(Array.isArray(parsed.people));
   assert.ok(Array.isArray(parsed.documents));
   assert.ok(Array.isArray(parsed.events));
+  assert.ok(Array.isArray(parsed.concepts));
+  assert.ok(Array.isArray(parsed.course_concepts));
 
   // Test corrupt import rejection
   const invalidImport = DataRepository.importAllData('{"not_a_valid_neuron_backup": 123}');

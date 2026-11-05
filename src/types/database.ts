@@ -153,7 +153,7 @@ export interface CourseGraphLayout {
 
 export interface GlobalSearchResult {
   id: string;
-  type: 'semester' | 'course' | 'person' | 'document' | 'event';
+  type: 'semester' | 'course' | 'person' | 'document' | 'event' | 'concept';
   title: string;
   subtitle: string;
   url: string;

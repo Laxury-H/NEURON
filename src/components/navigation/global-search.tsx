@@ -21,6 +21,7 @@ import {
   Calendar,
   ArrowRight,
   Sparkles,
+  Brain,
 } from "lucide-react";
 
 interface GlobalSearchProps {
@@ -174,6 +175,8 @@ export function GlobalSearch({ open, onOpenChange, onSelect }: GlobalSearchProps
         return <FileText className="h-4 w-4 text-muted-foreground" />;
       case "event":
         return <Calendar className="h-4 w-4 text-muted-foreground" />;
+      case "concept":
+        return <Brain className="h-4 w-4 text-muted-foreground" />;
     }
   };
 

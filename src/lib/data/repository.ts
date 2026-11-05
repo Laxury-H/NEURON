@@ -11,6 +11,8 @@ import type {
   RelationshipType,
   DocumentCategory,
   EventType,
+  Concept,
+  CourseConcept,
 } from '../../types/database.ts';
 import {
   INITIAL_USER_ID,
@@ -20,6 +22,8 @@ import {
   INITIAL_COURSE_PEOPLE,
   INITIAL_DOCUMENTS,
   INITIAL_COURSE_DOCUMENTS,
+  INITIAL_CONCEPTS,
+  INITIAL_COURSE_CONCEPTS,
   INITIAL_EVENTS,
   INITIAL_GRAPH_LAYOUTS,
 } from './mock-data.ts';
@@ -36,6 +40,8 @@ interface LocalStoreState {
   course_people: CoursePerson[];
   documents: DocumentItem[];
   course_documents: CourseDocument[];
+  concepts: Concept[];
+  course_concepts: CourseConcept[];
   events: CalendarEvent[];
   layouts: Record<string, CourseGraphLayout>;
 }
@@ -49,6 +55,8 @@ function getInitialStore(): LocalStoreState {
     course_people: JSON.parse(JSON.stringify(INITIAL_COURSE_PEOPLE)),
     documents: JSON.parse(JSON.stringify(INITIAL_DOCUMENTS)),
     course_documents: JSON.parse(JSON.stringify(INITIAL_COURSE_DOCUMENTS)),
+    concepts: JSON.parse(JSON.stringify(INITIAL_CONCEPTS)),
+    course_concepts: JSON.parse(JSON.stringify(INITIAL_COURSE_CONCEPTS)),
     events: JSON.parse(JSON.stringify(INITIAL_EVENTS)),
     layouts: JSON.parse(JSON.stringify(INITIAL_GRAPH_LAYOUTS)),
   };
@@ -391,6 +399,7 @@ export const DataRepository = {
     store.courses = store.courses.filter((c) => c.id !== id);
     store.course_people = store.course_people.filter((cp) => cp.course_id !== id);
     store.course_documents = store.course_documents.filter((cd) => cd.course_id !== id);
+    store.course_concepts = (store.course_concepts || []).filter((cc) => cc.course_id !== id);
     store.events = store.events.map((e) => (e.course_id === id ? { ...e, course_id: null } : e));
     delete store.layouts[id];
     saveStore(store);
@@ -398,12 +407,13 @@ export const DataRepository = {
   },
 
   /* ------------------------------------------------------------------------
-     COURSE GRAPH (People, Documents & Layout for Course)
+     COURSE GRAPH (People, Documents, Concepts & Layout for Course)
      ------------------------------------------------------------------------ */
   async getCourseGraphData(courseId: string): Promise<{
     course: Course;
     people: Person[];
     documents: DocumentItem[];
+    concepts: Concept[];
     layout: CourseGraphLayout | null;
     allPeople: Person[];
     allDocuments: DocumentItem[];
@@ -426,6 +436,12 @@ export const DataRepository = {
           .select('*, documents(*)')
           .eq('course_id', courseId)
           .order('display_order', { ascending: true });
+
+        // Query connected concepts
+        const { data: ccData } = await supabase
+          .from('course_concepts')
+          .select('*, concepts(*)')
+          .eq('course_id', courseId);
 
         // Query layout
         const { data: layoutData } = await supabase
@@ -453,11 +469,13 @@ export const DataRepository = {
         }));
 
         const connectedDocs = (cdData || []).map((cd: any) => cd.documents);
+        const connectedConcepts = (ccData || []).map((cc: any) => cc.concepts).filter(Boolean);
 
         return {
           course,
           people: connectedPeople,
           documents: connectedDocs,
+          concepts: connectedConcepts,
           layout: layoutData || null,
           allPeople: allP || [],
           allDocuments: allD || [],
@@ -516,12 +534,22 @@ export const DataRepository = {
       }
     }
 
+    const courseConceptLinks = (store.course_concepts || []).filter((cc) => cc.course_id === courseId);
+    const concepts: Concept[] = [];
+    for (const cc of courseConceptLinks) {
+      const conc = (store.concepts || []).find((c) => c.id === cc.concept_id);
+      if (conc) {
+        concepts.push(conc);
+      }
+    }
+
     const layout = store.layouts[courseId] || null;
 
     return {
       course,
       people,
       documents,
+      concepts,
       layout,
       allPeople: store.people,
       allDocuments: store.documents,
@@ -1070,6 +1098,75 @@ export const DataRepository = {
   },
 
   /* ------------------------------------------------------------------------
+     CONCEPTS (Academic Knowledge Graph Nodes)
+     ------------------------------------------------------------------------ */
+  async getConcepts(): Promise<Concept[]> {
+    if (isSupabaseConfigured()) {
+      const supabase = createClient();
+      if (supabase) {
+        const { data, error } = await supabase.from('concepts').select('*').order('name', { ascending: true });
+        if (!error && data) return data;
+      }
+    }
+    const store = loadStore();
+    return [...(store.concepts || [])].sort((a, b) => a.name.localeCompare(b.name));
+  },
+
+  async getCourseConcepts(courseId: string): Promise<(CourseConcept & { concept?: Concept })[]> {
+    if (isSupabaseConfigured()) {
+      const supabase = createClient();
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('course_concepts')
+          .select('*, concept:concepts(*)')
+          .eq('course_id', courseId);
+        if (!error && data) return data;
+      }
+    }
+    const store = loadStore();
+    const links = (store.course_concepts || []).filter((cc) => cc.course_id === courseId);
+    return links.map((link) => ({
+      ...link,
+      concept: (store.concepts || []).find((c) => c.id === link.concept_id),
+    }));
+  },
+
+  async linkConceptToCourse(data: {
+    course_id: string;
+    concept_id: string;
+    relevance_score?: number;
+    source_type?: 'MANUAL' | 'EXTRACTED_SYLLABUS' | 'EXTRACTED_DOCUMENT';
+  }): Promise<CourseConcept> {
+    const store = loadStore();
+    const existing = (store.course_concepts || []).find(
+      (cc) => cc.course_id === data.course_id && cc.concept_id === data.concept_id
+    );
+    if (existing) return existing;
+
+    const newLink: CourseConcept = {
+      id: `cc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      user_id: store.userId,
+      course_id: data.course_id,
+      concept_id: data.concept_id,
+      relevance_score: data.relevance_score ?? 1.0,
+      source_type: data.source_type ?? 'MANUAL',
+      created_at: new Date().toISOString(),
+    };
+    store.course_concepts = [...(store.course_concepts || []), newLink];
+    saveStore(store);
+    return newLink;
+  },
+
+  async unlinkConceptFromCourse(courseId: string, conceptId: string): Promise<boolean> {
+    const store = loadStore();
+    store.course_concepts = (store.course_concepts || []).filter(
+      (cc) => !(cc.course_id === courseId && cc.concept_id === conceptId)
+    );
+    saveStore(store);
+    return true;
+  },
+
+  /* ------------------------------------------------------------------------
      EVENTS & CALENDAR
      ------------------------------------------------------------------------ */
   async getEvents(
@@ -1359,6 +1456,27 @@ export const DataRepository = {
       }
     }
 
+    // Search Concepts
+    for (const c of store.concepts || []) {
+      if (
+        c.name.toLowerCase().includes(q) ||
+        c.slug.toLowerCase().includes(q) ||
+        (c.description && c.description.toLowerCase().includes(q))
+      ) {
+        const link = (store.course_concepts || []).find((cc) => cc.concept_id === c.id);
+        const course = link ? store.courses.find((x) => x.id === link.course_id) : null;
+        results.push({
+          id: c.id,
+          type: 'concept',
+          title: c.name,
+          subtitle: course ? `Concept in ${course.course_code}` : 'Academic Concept',
+          url: course
+            ? `/app/semesters/${course.semester_id}/courses/${course.id}`
+            : `/app/semesters`,
+        });
+      }
+    }
+
     return results;
   },
 
@@ -1418,6 +1536,12 @@ export const DataRepository = {
         }
         delete (parsed as Record<string, any>)._manifest;
         delete (parsed as Record<string, any>)._blobs;
+        if (!Array.isArray(parsed.concepts)) {
+          parsed.concepts = JSON.parse(JSON.stringify(INITIAL_CONCEPTS));
+        }
+        if (!Array.isArray(parsed.course_concepts)) {
+          parsed.course_concepts = JSON.parse(JSON.stringify(INITIAL_COURSE_CONCEPTS));
+        }
         saveStore(parsed as LocalStoreState);
         return true;
       }

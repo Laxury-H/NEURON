@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import FullCalendar from "@fullcalendar/react";
+import type { EventInput } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import listPlugin from "@fullcalendar/list";
@@ -12,6 +13,7 @@ import { DataRepository } from "@/lib/data/repository";
 import {
   detectScheduleConflicts,
   detectExamCrunches,
+  expandRecurringOccurrences,
   ConflictPair,
   CrunchWindow,
 } from "@/lib/calendar/conflict-detector";
@@ -332,8 +334,8 @@ export function SemesterCalendar({
   }, [events, selectedCourseFilter]);
 
   // Map to FullCalendar event format with weekly recurrence expansion
-  const calendarEvents = useMemo(() => {
-    return filteredEvents.map((ev) => {
+  const calendarEvents = useMemo<EventInput[]>(() => {
+    return filteredEvents.flatMap((ev): EventInput[] => {
       const hasConflict = conflictingEventIds.has(ev.id);
       const isCompleted = ev.deadline_status === "completed";
 
@@ -357,6 +359,31 @@ export function SemesterCalendar({
 
       // Check for weekly recurrence
       if (ev.recurrence_rule && ev.recurrence_rule.includes("FREQ=WEEKLY")) {
+        const hasInterval = /INTERVAL=\d+/.test(ev.recurrence_rule);
+        const hasUntil = /UNTIL=/.test(ev.recurrence_rule);
+
+        // If interval > 1 or has UNTIL, FullCalendar simple recurrence cannot handle it correctly.
+        // We expand into individual concrete occurrences using expandRecurringOccurrences.
+        if (hasInterval || hasUntil) {
+          const semesterStart = currentSemester ? new Date(currentSemester.start_date) : new Date(ev.start_at);
+          const semesterEnd = currentSemester ? new Date(currentSemester.end_date) : new Date("2027-12-31");
+          const occurrences = expandRecurringOccurrences(ev, semesterStart, semesterEnd);
+
+          return occurrences.map((occ) => ({
+            id: occ.id,
+            groupId: ev.id,
+            title: displayTitle,
+            start: occ.start_at,
+            end: occ.end_at,
+            allDay: occ.all_day,
+            className,
+            extendedProps: {
+              originalEvent: ev,
+              hasConflict,
+            },
+          }));
+        }
+
         const byDayMap: Record<string, number> = {
           SU: 0,
           MO: 1,
@@ -395,36 +422,40 @@ export function SemesterCalendar({
         });
         const endRecurStr = currentSemester?.end_date || "2027-12-31";
 
-        return {
+        return [
+          {
+            id: ev.id,
+            groupId: ev.id,
+            title: displayTitle,
+            daysOfWeek: [dayNumber],
+            startTime: ev.all_day ? undefined : startTimeStr,
+            endTime: ev.all_day ? undefined : endTimeStr,
+            startRecur: startRecurStr,
+            endRecur: endRecurStr,
+            allDay: ev.all_day,
+            className,
+            extendedProps: {
+              originalEvent: ev,
+              hasConflict,
+            },
+          },
+        ];
+      }
+
+      return [
+        {
           id: ev.id,
-          groupId: ev.id,
           title: displayTitle,
-          daysOfWeek: [dayNumber],
-          startTime: ev.all_day ? undefined : startTimeStr,
-          endTime: ev.all_day ? undefined : endTimeStr,
-          startRecur: startRecurStr,
-          endRecur: endRecurStr,
+          start: ev.start_at,
+          end: ev.end_at,
           allDay: ev.all_day,
           className,
           extendedProps: {
             originalEvent: ev,
             hasConflict,
           },
-        };
-      }
-
-      return {
-        id: ev.id,
-        title: displayTitle,
-        start: ev.start_at,
-        end: ev.end_at,
-        allDay: ev.all_day,
-        className,
-        extendedProps: {
-          originalEvent: ev,
-          hasConflict,
         },
-      };
+      ];
     });
   }, [filteredEvents, currentSemester, conflictingEventIds]);
 

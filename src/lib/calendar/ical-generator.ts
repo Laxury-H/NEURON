@@ -1,4 +1,4 @@
-import { CalendarEvent, Semester } from "@/types/database";
+import type { CalendarEvent, Semester } from "../../types/database.ts";
 
 function formatUtcIcal(date: Date): string {
   return date

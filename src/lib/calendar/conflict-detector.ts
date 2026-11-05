@@ -1,4 +1,4 @@
-import { CalendarEvent } from "@/types/database";
+import type { CalendarEvent } from "../../types/database.ts";
 
 export interface ConflictPair {
   eventA: CalendarEvent;
@@ -52,28 +52,77 @@ export function expandRecurringOccurrences(
         .filter((d) => d !== undefined)
     : [eventStart.getDay()];
 
+  // Parse INTERVAL
+  const intervalMatch = event.recurrence_rule.match(/INTERVAL=(\d+)/);
+  const interval = intervalMatch ? Math.max(1, parseInt(intervalMatch[1], 10)) : 1;
+
+  // Parse UNTIL
+  const untilMatch = event.recurrence_rule.match(/UNTIL=([0-9TZ]+)/);
+  let untilDate: Date | null = null;
+  if (untilMatch) {
+    const u = untilMatch[1];
+    if (u.length === 8) {
+      untilDate = new Date(
+        Date.UTC(
+          parseInt(u.substring(0, 4), 10),
+          parseInt(u.substring(4, 6), 10) - 1,
+          parseInt(u.substring(6, 8), 10),
+          23,
+          59,
+          59
+        )
+      );
+    } else {
+      untilDate = new Date(
+        u.replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z?$/, "$1-$2-$3T$4:$5:$6Z")
+      );
+    }
+  }
+
+  // Anchor to Monday of event start week to compute discrete week differentials
+  const startDayOffset = (eventStart.getDay() + 6) % 7; // 0 = Monday, ..., 6 = Sunday
+  const startMonday = new Date(eventStart);
+  startMonday.setDate(eventStart.getDate() - startDayOffset);
+  startMonday.setHours(0, 0, 0, 0);
+
   const cursor = new Date(Math.max(eventStart.getTime(), rangeStart.getTime()));
   cursor.setHours(0, 0, 0, 0);
   const horizonEnd = new Date(rangeEnd.getTime());
 
   while (cursor <= horizonEnd) {
-    if (targetDays.includes(cursor.getDay())) {
-      const occStart = new Date(cursor);
-      occStart.setHours(
-        eventStart.getHours(),
-        eventStart.getMinutes(),
-        eventStart.getSeconds(),
-        eventStart.getMilliseconds()
-      );
-      const occEnd = new Date(occStart.getTime() + durationMs);
+    if (untilDate && cursor > untilDate) {
+      break;
+    }
 
-      if (occStart >= eventStart && occStart <= horizonEnd) {
-        occurrences.push({
-          ...event,
-          id: `${event.id}_occ_${occStart.toISOString()}`,
-          start_at: occStart.toISOString(),
-          end_at: occEnd.toISOString(),
-        });
+    if (targetDays.includes(cursor.getDay())) {
+      // Check interval week alignment
+      const cursorDayOffset = (cursor.getDay() + 6) % 7;
+      const cursorMonday = new Date(cursor);
+      cursorMonday.setDate(cursor.getDate() - cursorDayOffset);
+      cursorMonday.setHours(0, 0, 0, 0);
+
+      const diffWeeks = Math.round(
+        (cursorMonday.getTime() - startMonday.getTime()) / (7 * 24 * 3600 * 1000)
+      );
+
+      if (diffWeeks >= 0 && diffWeeks % interval === 0) {
+        const occStart = new Date(cursor);
+        occStart.setHours(
+          eventStart.getHours(),
+          eventStart.getMinutes(),
+          eventStart.getSeconds(),
+          eventStart.getMilliseconds()
+        );
+        const occEnd = new Date(occStart.getTime() + durationMs);
+
+        if (occStart >= eventStart && occStart <= horizonEnd) {
+          occurrences.push({
+            ...event,
+            id: `${event.id}_occ_${occStart.toISOString()}`,
+            start_at: occStart.toISOString(),
+            end_at: occEnd.toISOString(),
+          });
+        }
       }
     }
     cursor.setDate(cursor.getDate() + 1);
