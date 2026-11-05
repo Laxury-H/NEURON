@@ -30,8 +30,8 @@ import {
 import { createClient, isSupabaseConfigured } from '../supabase/client.ts';
 import { BlobStorage } from './blob-storage.ts';
 
-const STORAGE_KEY = 'neuron_store_v2026_1_real_docs';
-const LEGACY_STORAGE_KEYS = ['neuron_store_v1', 'neuron_store_v2026_1'];
+const STORAGE_KEY = 'neuron_store_v2026_1_unified';
+const LEGACY_STORAGE_KEYS = ['neuron_store_v1', 'neuron_store_v2026_1', 'neuron_store_v2026_1_real_docs'];
 
 interface LocalStoreState {
   userId: string;
@@ -71,21 +71,35 @@ function loadStore(): LocalStoreState {
     return memoryStore;
   }
   try {
+    // Purge legacy storage versions
+    for (const legacyKey of LEGACY_STORAGE_KEYS) {
+      try {
+        localStorage.removeItem(legacyKey);
+      } catch {}
+    }
+
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      // Clean up legacy stores
-      for (const legacyKey of LEGACY_STORAGE_KEYS) {
-        try {
-          localStorage.removeItem(legacyKey);
-        } catch {}
-      }
       const initial = getInitialStore();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
       return initial;
     }
     const parsed = JSON.parse(raw);
-    // Auto-migrate if store does not contain the complete 2026.1 timetable
-    if (!parsed.courses || !parsed.courses.some((c: Course) => c.course_code === 'EE3600E') || !parsed.concepts) {
+    // Auto-migrate if store does not contain the complete 2026.1 timetable or has legacy document mapping
+    const hasLegacyDocCollision = parsed.course_documents && parsed.course_documents.some(
+      (cd: CourseDocument) => cd.course_id === 'c-ee4020'
+    );
+    const hasLegacyLecturer = parsed.people && parsed.people.some(
+      (p: Person) => p.full_name === 'Nguyen Van A'
+    );
+
+    if (
+      !parsed.courses ||
+      !parsed.courses.some((c: Course) => c.course_code === 'EE3600E') ||
+      !parsed.concepts ||
+      hasLegacyDocCollision ||
+      hasLegacyLecturer
+    ) {
       const initial = getInitialStore();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
       return initial;

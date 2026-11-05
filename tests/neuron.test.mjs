@@ -319,8 +319,8 @@ test('10. Universal Global Search — Full Indexing across All Domains', async (
   assert.ok(courseResults.some((r) => r.type === 'course' && r.title.includes('EE4010')));
 
   // Person by Name Search
-  const personResults = await DataRepository.globalSearch('Nguyen Van A');
-  assert.ok(personResults.some((r) => r.type === 'person' && r.title.includes('Nguyen Van A')));
+  const personResults = await DataRepository.globalSearch('Nguyen Duc Huy');
+  assert.ok(personResults.some((r) => r.type === 'person' && r.title.includes('Nguyen Duc Huy')));
 
   // Knowledge Topic Search ("Newton-Raphson" is in course_people knowledge_topics)
   const topicResults = await DataRepository.globalSearch('Newton-Raphson');
