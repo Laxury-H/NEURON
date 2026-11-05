@@ -1427,6 +1427,10 @@ export const DataRepository = {
     }
   },
 
+  getDefaultData(): LocalStoreState {
+    return getInitialStore();
+  },
+
   resetToDefaultData(): void {
     const fresh = getInitialStore();
     saveStore(fresh);

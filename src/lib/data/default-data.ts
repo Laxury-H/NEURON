@@ -1,0 +1,28 @@
+/**
+ * Default data repository definitions for NEURON
+ * Contains initial seed data for Semester 2026.1 and related academic models.
+ */
+
+export * from './mock-data.ts';
+
+import {
+  INITIAL_USER_ID,
+  INITIAL_SEMESTERS,
+  INITIAL_COURSES,
+  INITIAL_PEOPLE,
+  INITIAL_COURSE_PEOPLE,
+  INITIAL_DOCUMENTS,
+  INITIAL_COURSE_DOCUMENTS,
+  INITIAL_EVENTS,
+  INITIAL_GRAPH_LAYOUTS,
+} from './mock-data.ts';
+
+export const DEFAULT_USER_ID = INITIAL_USER_ID;
+export const DEFAULT_SEMESTERS = INITIAL_SEMESTERS;
+export const DEFAULT_COURSES = INITIAL_COURSES;
+export const DEFAULT_PEOPLE = INITIAL_PEOPLE;
+export const DEFAULT_COURSE_PEOPLE = INITIAL_COURSE_PEOPLE;
+export const DEFAULT_DOCUMENTS = INITIAL_DOCUMENTS;
+export const DEFAULT_COURSE_DOCUMENTS = INITIAL_COURSE_DOCUMENTS;
+export const DEFAULT_EVENTS = INITIAL_EVENTS;
+export const DEFAULT_GRAPH_LAYOUTS = INITIAL_GRAPH_LAYOUTS;

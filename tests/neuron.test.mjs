@@ -93,7 +93,7 @@ test('3. Course Neural Graph — Three Primary Nodes Structure & Data Loader', a
   const courseId = 'c-ee4010';
   const graphData = await DataRepository.getCourseGraphData(courseId);
   assert.ok(graphData, 'Graph data must exist for EE4010');
-  assert.equal(graphData.course.course_code, 'EE4010');
+  assert.equal(graphData.course.course_code, 'EE4010E');
 
   // Central Node: course
   assert.ok(graphData.course);
