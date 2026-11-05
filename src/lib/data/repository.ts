@@ -30,7 +30,8 @@ import {
 import { createClient, isSupabaseConfigured } from '../supabase/client.ts';
 import { BlobStorage } from './blob-storage.ts';
 
-const STORAGE_KEY = 'neuron_store_v1';
+const STORAGE_KEY = 'neuron_store_v2026_1';
+const LEGACY_STORAGE_KEYS = ['neuron_store_v1'];
 
 interface LocalStoreState {
   userId: string;
@@ -72,11 +73,24 @@ function loadStore(): LocalStoreState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
+      // Clean up legacy stores
+      for (const legacyKey of LEGACY_STORAGE_KEYS) {
+        try {
+          localStorage.removeItem(legacyKey);
+        } catch {}
+      }
       const initial = getInitialStore();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
       return initial;
     }
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    // Auto-migrate if store does not contain the complete 2026.1 timetable
+    if (!parsed.courses || !parsed.courses.some((c: Course) => c.course_code === 'EE3600E') || !parsed.concepts) {
+      const initial = getInitialStore();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
+      return initial;
+    }
+    return parsed;
   } catch (err) {
     console.error('Failed to load local store:', err);
     return memoryStore;
@@ -1558,5 +1572,13 @@ export const DataRepository = {
   resetToDefaultData(): void {
     const fresh = getInitialStore();
     saveStore(fresh);
+    if (typeof window !== 'undefined') {
+      try {
+        for (const legacyKey of LEGACY_STORAGE_KEYS) {
+          localStorage.removeItem(legacyKey);
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
+      } catch {}
+    }
   },
 };
