@@ -27,22 +27,14 @@ export const RelationshipGroupNode = memo(({ data, selected }: NodeProps) => {
       {/* Handles connecting to central Course node and person nodes */}
       <Handle
         type="target"
+        id="rel-right"
         position={Position.Right}
         className="opacity-0"
       />
       <Handle
         type="source"
+        id="rel-left"
         position={Position.Left}
-        className="opacity-0"
-      />
-      <Handle
-        type="source"
-        position={Position.Top}
-        className="opacity-0"
-      />
-      <Handle
-        type="source"
-        position={Position.Bottom}
         className="opacity-0"
       />
 

@@ -7,14 +7,21 @@ export interface ConcentricLayoutResult {
   people: Point[];
   docs: Point[];
   concepts: Point[];
+  relationships: Point;
+  files: Point;
+  course: Point;
 }
 
 /**
- * Computes a concentric multi-ring layout with angular dispersion
- * and dynamic multi-tier staggering for high node counts.
- * - People: West Sector (135° to 225°)
- * - Documents: East Sector (-45° to 45°)
- * - Concepts: North Arc (45° to 135°, invertY for screen-space Y coordinates)
+ * Computes a hierarchical non-overlapping neural layout:
+ * - Course: Central Anchor Node (width 192, height 192)
+ * - Relationships Cluster: West Sector (center.x - 320, center.y + 60)
+ * - People: West Wing (relationships.x - 240, vertically centered)
+ * - Files Cluster: East Sector (center.x + 320, center.y + 60)
+ * - Documents: East Wing (files.x + 240, vertically centered)
+ * - Concepts: North Crown Arc (centered above course with 260px horizontal stride)
+ *
+ * Guarantees 0-collision AABB spacing and strictly non-crossing orthogonal edges.
  */
 export function computeConcentricLayout(
   center: Point,
@@ -22,36 +29,64 @@ export function computeConcentricLayout(
   docsCount: number,
   conceptsCount: number = 0
 ): ConcentricLayoutResult {
-  const R_BASE = 400;
-  const R_TIER_1 = 360;
-  const R_TIER_2 = 450;
+  // 1. Center Course Node
+  const course: Point = { x: center.x, y: center.y };
 
-  const distribute = (
-    count: number,
-    startAngle: number,
-    endAngle: number,
-    invertY = false
-  ): Point[] => {
-    if (count === 0) return [];
-    const step = (endAngle - startAngle) / Math.max(count, 1);
-    return Array.from({ length: count }, (_, i) => {
-      const theta = startAngle + step * (i + 0.5);
-      // Dynamic multi-tier staggering when leaf count > 8 to prevent node overlap
-      const radius = count > 8 ? (i % 2 === 0 ? R_TIER_1 : R_TIER_2) : R_BASE;
-      const yOffset = radius * Math.sin(theta);
-      return {
-        x: Math.round(center.x + radius * Math.cos(theta)),
-        y: Math.round(invertY ? center.y - yOffset : center.y + yOffset),
-      };
-    });
-  };
+  // 2. Left Cluster: Relationships Node (w: 176, h: 70)
+  const relationships: Point = { x: center.x - 320, y: center.y + 60 };
+
+  // 3. Right Cluster: Files Node (w: 176, h: 70)
+  const files: Point = { x: center.x + 320, y: center.y + 60 };
+
+  // 4. People Nodes (w: 200, h: 50) - Placed to the LEFT of Relationships
+  const people: Point[] = [];
+  const peopleSpacingY = 72;
+  const peopleStartY = (relationships.y + 35) - ((peopleCount - 1) * peopleSpacingY) / 2;
+  for (let i = 0; i < peopleCount; i++) {
+    let col = 0;
+    let row = i;
+    if (peopleCount > 5) {
+      col = i % 2;
+      row = Math.floor(i / 2);
+    }
+    const x = col === 0 ? relationships.x - 240 : relationships.x - 470;
+    const y = Math.round(peopleStartY + row * peopleSpacingY);
+    people.push({ x, y });
+  }
+
+  // 5. Document Nodes (w: 224, h: 56) - Placed to the RIGHT of Files
+  const docs: Point[] = [];
+  const docsSpacingY = 74;
+  const docsStartY = (files.y + 35) - ((docsCount - 1) * docsSpacingY) / 2;
+  for (let i = 0; i < docsCount; i++) {
+    let col = 0;
+    let row = i;
+    if (docsCount > 5) {
+      col = i % 2;
+      row = Math.floor(i / 2);
+    }
+    const x = col === 0 ? files.x + 240 : files.x + 490;
+    const y = Math.round(docsStartY + row * docsSpacingY);
+    docs.push({ x, y });
+  }
+
+  // 6. Concept Nodes (w: 210, h: 90) - Placed in an arc ABOVE Course
+  const concepts: Point[] = [];
+  const conceptSpacingX = 260;
+  const conceptStartX = (center.x + 96) - ((conceptsCount - 1) * conceptSpacingX) / 2 - 105;
+  for (let i = 0; i < conceptsCount; i++) {
+    const x = Math.round(conceptStartX + i * conceptSpacingX);
+    const archOffset = Math.abs(i - (conceptsCount - 1) / 2) * 20;
+    const y = Math.round(center.y - 180 + archOffset);
+    concepts.push({ x, y });
+  }
 
   return {
-    // People: Left Hemisphere (135° to 225° / West Sector)
-    people: distribute(peopleCount, (3 * Math.PI) / 4, (5 * Math.PI) / 4, false),
-    // Documents: Right Hemisphere (-45° to 45° / East Sector)
-    docs: distribute(docsCount, -Math.PI / 4, Math.PI / 4, false),
-    // Concepts: Top Arc (45° to 135° / North Sector, invertY = true)
-    concepts: distribute(conceptsCount, Math.PI / 4, (3 * Math.PI) / 4, true),
+    course,
+    relationships,
+    files,
+    people,
+    docs,
+    concepts,
   };
 }

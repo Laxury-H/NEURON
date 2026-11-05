@@ -30,8 +30,13 @@ import {
 import { createClient, isSupabaseConfigured } from '../supabase/client.ts';
 import { BlobStorage } from './blob-storage.ts';
 
-const STORAGE_KEY = 'neuron_store_v2026_1_unified';
-const LEGACY_STORAGE_KEYS = ['neuron_store_v1', 'neuron_store_v2026_1', 'neuron_store_v2026_1_real_docs'];
+const STORAGE_KEY = 'neuron_store_v2026_1_balanced';
+const LEGACY_STORAGE_KEYS = [
+  'neuron_store_v1',
+  'neuron_store_v2026_1',
+  'neuron_store_v2026_1_real_docs',
+  'neuron_store_v2026_1_unified',
+];
 
 interface LocalStoreState {
   userId: string;
@@ -92,13 +97,15 @@ function loadStore(): LocalStoreState {
     const hasLegacyLecturer = parsed.people && parsed.people.some(
       (p: Person) => p.full_name === 'Nguyen Van A'
     );
+    const hasLegacyLayout = parsed.layouts?.['c-ee4010']?.positions?.course?.x === 420;
 
     if (
       !parsed.courses ||
       !parsed.courses.some((c: Course) => c.course_code === 'EE3600E') ||
       !parsed.concepts ||
       hasLegacyDocCollision ||
-      hasLegacyLecturer
+      hasLegacyLecturer ||
+      hasLegacyLayout
     ) {
       const initial = getInitialStore();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));

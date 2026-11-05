@@ -26,22 +26,26 @@ export const CourseNode = memo(({ data, selected }: NodeProps) => {
       )}
     >
       <Handle
-        type="target"
+        type="source"
+        id="course-top"
         position={Position.Top}
         className="opacity-0 w-2 h-2"
       />
       <Handle
         type="source"
+        id="course-bottom"
         position={Position.Bottom}
         className="opacity-0 w-2 h-2"
       />
       <Handle
-        type="target"
+        type="source"
+        id="course-left"
         position={Position.Left}
         className="opacity-0 w-2 h-2"
       />
       <Handle
         type="source"
+        id="course-right"
         position={Position.Right}
         className="opacity-0 w-2 h-2"
       />

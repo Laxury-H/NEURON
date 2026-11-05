@@ -85,7 +85,6 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [allPeople, setAllPeople] = useState<Person[]>([]);
   const [allDocuments, setAllDocuments] = useState<DocumentItem[]>([]);
-  const [savedLayout, setSavedLayout] = useState<CourseGraphLayout | null>(null);
 
   // Expansion state — default to expanded so all files & people nodes are immediately visible
   const [expandRelationships, setExpandRelationships] = useState<boolean>(true);
@@ -131,6 +130,22 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
+  // Persistent positions cache & debounced storage writer for zero main-thread stutter
+  const savedPositionsRef = React.useRef<Record<string, { x: number; y: number }>>({});
+  const saveTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const debouncedSaveLayout = useCallback(
+    (positions: Record<string, { x: number; y: number }>, viewport: { x: number; y: number; zoom: number }) => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+      }
+      saveTimerRef.current = setTimeout(() => {
+        DataRepository.saveCourseGraphLayout(courseId, positions, viewport);
+      }, 600);
+    },
+    [courseId]
+  );
+
   // Load Graph Data
   const loadData = useCallback(async () => {
     try {
@@ -142,7 +157,9 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         setConcepts(data.concepts || []);
         setAllPeople(data.allPeople);
         setAllDocuments(data.allDocuments);
-        setSavedLayout(data.layout);
+        if (data.layout?.positions) {
+          savedPositionsRef.current = data.layout.positions;
+        }
         if (data.layout?.viewport) {
           setTimeout(() => {
             setViewport(data.layout!.viewport, { duration: 300 });
@@ -188,7 +205,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
     const newNodes: Node[] = [];
     const newEdges: Edge[] = [];
 
-    const positions = savedLayout?.positions || {};
+    const positions = savedPositionsRef.current;
 
     const centralEdgeStroke = pureBw
       ? (theme === "dark" ? "#FFFFFF" : "#000000")
@@ -197,8 +214,12 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
       ? (theme === "dark" ? "#FFFFFF" : "#000000")
       : "#A3A3A3";
 
+    // Dynamic concentric fallback layout
+    const baseCenter = { x: 500, y: 320 };
+    const concentric = computeConcentricLayout(baseCenter, people.length, documents.length, concepts.length);
+
     // 1. Central Course Node
-    const coursePos = positions["course"] || { x: 380, y: 220 };
+    const coursePos = positions["course"] || concentric.course;
     newNodes.push({
       id: "course",
       type: "courseNode",
@@ -212,7 +233,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
     });
 
     // 2. Relationships Group Node
-    const relPos = positions["relationships"] || { x: 80, y: 140 };
+    const relPos = positions["relationships"] || concentric.relationships;
     newNodes.push({
       id: "relationships",
       type: "relationshipGroupNode",
@@ -224,18 +245,20 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
       },
     });
 
-    // Edge Course -> Relationships
+    // Edge Course -> Relationships (West Branch)
     newEdges.push({
       id: "edge-course-relationships",
       source: "course",
+      sourceHandle: "course-left",
       target: "relationships",
+      targetHandle: "rel-right",
       type: "smoothstep",
-      animated: true,
+      animated: false,
       style: { stroke: centralEdgeStroke, strokeWidth: pureBw ? 2 : 1.5 },
     });
 
     // 3. Files Group Node
-    const filesPos = positions["files"] || { x: 680, y: 140 };
+    const filesPos = positions["files"] || concentric.files;
     newNodes.push({
       id: "files",
       type: "filesGroupNode",
@@ -247,26 +270,23 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
       },
     });
 
-    // Edge Course -> Files
+    // Edge Course -> Files (East Branch)
     newEdges.push({
       id: "edge-course-files",
       source: "course",
+      sourceHandle: "course-right",
       target: "files",
+      targetHandle: "files-left",
       type: "smoothstep",
-      animated: true,
+      animated: false,
       style: { stroke: centralEdgeStroke, strokeWidth: pureBw ? 2 : 1.5 },
     });
-
-    // Calculate radial concentric coordinates for leaf nodes
-    const concentric = computeConcentricLayout(coursePos, people.length, documents.length, concepts.length);
 
     // 4. Render Person Nodes if Relationships is expanded
     if (expandRelationships) {
       people.forEach((p, index) => {
         const nodeId = `person-${p.id}`;
-        const defaultX = concentric.people[index]?.x ?? (relPos.x - 220);
-        const defaultY = concentric.people[index]?.y ?? (relPos.y - 120 + index * 75);
-        const pPos = positions[nodeId] || { x: defaultX, y: defaultY };
+        const pPos = positions[nodeId] || concentric.people[index] || { x: relPos.x - 240, y: relPos.y + index * 75 };
 
         const matchesSearch =
           !graphSearchQuery ||
@@ -291,8 +311,11 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         newEdges.push({
           id: `edge-rel-${p.id}`,
           source: "relationships",
+          sourceHandle: "rel-left",
           target: nodeId,
+          targetHandle: "person-right",
           type: "smoothstep",
+          animated: false,
           style: { stroke: clusterEdgeStroke, strokeWidth: pureBw ? 2 : 1 },
         });
       });
@@ -302,9 +325,7 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
     if (expandFiles) {
       documents.forEach((d, index) => {
         const nodeId = `doc-${d.id}`;
-        const defaultX = concentric.docs[index]?.x ?? (filesPos.x + 220);
-        const defaultY = concentric.docs[index]?.y ?? (filesPos.y - 120 + index * 75);
-        const dPos = positions[nodeId] || { x: defaultX, y: defaultY };
+        const dPos = positions[nodeId] || concentric.docs[index] || { x: filesPos.x + 240, y: filesPos.y + index * 75 };
 
         const matchesSearch =
           !graphSearchQuery ||
@@ -342,19 +363,20 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         newEdges.push({
           id: `edge-files-${d.id}`,
           source: "files",
+          sourceHandle: "files-right",
           target: nodeId,
+          targetHandle: "doc-left",
           type: "smoothstep",
+          animated: false,
           style: { stroke: clusterEdgeStroke, strokeWidth: pureBw ? 2 : 1 },
         });
       });
     }
 
-    // 6. Render Concept Nodes (North Arc / Top Sector)
+    // 6. Render Concept Nodes (North Crown Arc)
     concepts.forEach((concept, index) => {
       const nodeId = `concept-${concept.id}`;
-      const defaultX = concentric.concepts[index]?.x ?? (coursePos.x - 120 + index * 120);
-      const defaultY = concentric.concepts[index]?.y ?? (coursePos.y - 180);
-      const cPos = positions[nodeId] || { x: defaultX, y: defaultY };
+      const cPos = positions[nodeId] || concentric.concepts[index] || { x: coursePos.x - 120 + index * 260, y: coursePos.y - 180 };
 
       const matchesSearch =
         !graphSearchQuery ||
@@ -378,9 +400,11 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
       newEdges.push({
         id: `edge-course-${concept.id}`,
         source: "course",
+        sourceHandle: "course-top",
         target: nodeId,
+        targetHandle: "concept-bottom",
         type: "smoothstep",
-        animated: true,
+        animated: false,
         style: { stroke: centralEdgeStroke, strokeWidth: pureBw ? 2 : 1.5 },
       });
     });
@@ -394,7 +418,6 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
     concepts,
     expandRelationships,
     expandFiles,
-    savedLayout,
     graphSearchQuery,
     selectedPerson,
     selectedDocument,
@@ -414,52 +437,25 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
     }
   }, [courseId, fitView, nodes.length, expandRelationships, expandFiles]);
 
-  // Node Drag Stop -> Save Positions
+  // Node Drag Stop -> Save Positions without tearing down DOM nodes
   const onNodeDragStop: OnNodeDrag = useCallback(
     (_, node) => {
-      setNodes((currentNodes) => {
-        const updatedPositions: Record<string, { x: number; y: number }> = {
-          ...(savedLayout?.positions || {}),
-        };
-        currentNodes.forEach((n) => {
-          updatedPositions[n.id] = { x: n.position.x, y: n.position.y };
-        });
-        if (node) {
-          updatedPositions[node.id] = { x: node.position.x, y: node.position.y };
-        }
-
+      if (node) {
+        savedPositionsRef.current[node.id] = { x: node.position.x, y: node.position.y };
         const currentViewport = getViewport();
-        DataRepository.saveCourseGraphLayout(courseId, updatedPositions, currentViewport);
-
-        setSavedLayout((prev) => ({
-          course_id: courseId,
-          user_id: prev?.user_id || "",
-          positions: updatedPositions,
-          viewport: currentViewport,
-          updated_at: new Date().toISOString(),
-        }));
-
-        return currentNodes;
-      });
+        debouncedSaveLayout(savedPositionsRef.current, currentViewport);
+      }
     },
-    [courseId, savedLayout, getViewport, setNodes]
+    [getViewport, debouncedSaveLayout]
   );
 
-  // Pan / Zoom change -> Save Viewport
+  // Pan / Zoom change -> Save Viewport Debounced (zero main-thread re-render)
   const onMoveEnd = useCallback(
     (_: unknown, viewport: { x: number; y: number; zoom: number }) => {
       if (!course) return;
-      const positions = savedLayout?.positions || {};
-      DataRepository.saveCourseGraphLayout(courseId, positions, viewport);
-      setSavedLayout((prev) => ({
-        course_id: courseId,
-        user_id: prev?.user_id || "",
-        positions: prev?.positions || {},
-        viewport,
-        updated_at: new Date().toISOString(),
-      }));
+      debouncedSaveLayout(savedPositionsRef.current, viewport);
     },
-    [courseId, course, savedLayout]
+    [course, debouncedSaveLayout]
   );
 
   // Handle Node Click
@@ -514,38 +510,44 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
     [documents]
   );
 
-  // Reset Layout to balanced structure
+  // Reset Layout to balanced non-overlapping structure
   const handleResetLayout = useCallback(() => {
-    const courseCenter = { x: 380, y: 220 };
+    const courseCenter = { x: 500, y: 320 };
+    const concentric = computeConcentricLayout(courseCenter, people.length, documents.length, concepts.length);
+
     const defaultPositions: Record<string, { x: number; y: number }> = {
-      course: courseCenter,
-      relationships: { x: 80, y: 140 },
-      files: { x: 680, y: 140 },
+      course: concentric.course,
+      relationships: concentric.relationships,
+      files: concentric.files,
     };
 
-    const concentric = computeConcentricLayout(courseCenter, people.length, documents.length);
-
     people.forEach((p, idx) => {
-      defaultPositions[`person-${p.id}`] = concentric.people[idx] || { x: -140, y: 40 + idx * 75 };
+      defaultPositions[`person-${p.id}`] = concentric.people[idx];
     });
 
     documents.forEach((d, idx) => {
-      defaultPositions[`doc-${d.id}`] = concentric.docs[idx] || { x: 900, y: 40 + idx * 75 };
+      defaultPositions[`doc-${d.id}`] = concentric.docs[idx];
     });
 
-    const defaultViewport = { x: 50, y: 50, zoom: 0.9 };
+    concepts.forEach((c, idx) => {
+      defaultPositions[`concept-${c.id}`] = concentric.concepts[idx];
+    });
+
+    savedPositionsRef.current = defaultPositions;
+
+    const defaultViewport = { x: 80, y: 40, zoom: 0.85 };
     DataRepository.saveCourseGraphLayout(courseId, defaultPositions, defaultViewport);
-    setSavedLayout({
-      course_id: courseId,
-      user_id: "",
-      positions: defaultPositions,
-      viewport: defaultViewport,
-      updated_at: new Date().toISOString(),
-    });
 
-    fitView({ duration: 500 });
-    toast.success("Graph layout reset");
-  }, [courseId, people, documents, fitView]);
+    setNodes((currentNodes) =>
+      currentNodes.map((n) => ({
+        ...n,
+        position: defaultPositions[n.id] || n.position,
+      }))
+    );
+
+    setViewport(defaultViewport, { duration: 400 });
+    toast.success("Bố cục đồ thị tri thức đã được tối ưu hóa");
+  }, [courseId, people, documents, concepts, setNodes, setViewport]);
 
   // Keyboard Shortcuts for Canvas Navigation
   useEffect(() => {
@@ -975,6 +977,12 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         onNodeContextMenu={onNodeContextMenu}
         nodeTypes={nodeTypes}
         fitView
+        onlyRenderVisibleElements={true}
+        nodesDraggable={true}
+        nodesConnectable={false}
+        elementsSelectable={true}
+        autoPanOnNodeDrag={false}
+        elevateNodesOnSelect={false}
         minZoom={0.2}
         maxZoom={2.5}
         defaultEdgeOptions={{
@@ -991,6 +999,8 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
         <Controls showInteractive={false} position="bottom-left" className="!bottom-3 !left-3 sm:!bottom-4 sm:!left-4" />
         {showMiniMap && (
           <MiniMap
+            pannable={false}
+            zoomable={false}
             nodeStrokeColor={pureBw ? (theme === "dark" ? "#FFFFFF" : "#000000") : "#737373"}
             nodeColor={pureBw ? (theme === "dark" ? "#FFFFFF" : "#000000") : (theme === "dark" ? "#FFFFFF" : "#171717")}
             nodeBorderRadius={pureBw ? 0 : 3}

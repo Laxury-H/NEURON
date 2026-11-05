@@ -21,11 +21,13 @@ export const ConceptNode = memo(({ data, selected }: NodeProps<ConceptNodeType>)
     >
       <Handle
         type="target"
+        id="concept-bottom"
         position={Position.Bottom}
         className="h-2 w-2 rounded-full border border-background bg-foreground"
       />
       <Handle
         type="source"
+        id="concept-top"
         position={Position.Top}
         className="h-2 w-2 rounded-full border border-background bg-foreground"
       />

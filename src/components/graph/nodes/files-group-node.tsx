@@ -26,22 +26,14 @@ export const FilesGroupNode = memo(({ data, selected }: NodeProps) => {
     >
       <Handle
         type="target"
+        id="files-left"
         position={Position.Left}
         className="opacity-0"
       />
       <Handle
         type="source"
+        id="files-right"
         position={Position.Right}
-        className="opacity-0"
-      />
-      <Handle
-        type="source"
-        position={Position.Top}
-        className="opacity-0"
-      />
-      <Handle
-        type="source"
-        position={Position.Bottom}
         className="opacity-0"
       />
 

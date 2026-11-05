@@ -40,11 +40,13 @@ export const DocumentNode = memo(({ data, selected }: NodeProps) => {
     >
       <Handle
         type="target"
+        id="doc-left"
         position={Position.Left}
         className="opacity-0"
       />
       <Handle
         type="source"
+        id="doc-right"
         position={Position.Right}
         className="opacity-0"
       />

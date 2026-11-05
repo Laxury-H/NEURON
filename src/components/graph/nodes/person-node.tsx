@@ -34,11 +34,13 @@ export const PersonNode = memo(({ data, selected }: NodeProps) => {
     >
       <Handle
         type="target"
+        id="person-right"
         position={Position.Right}
         className="opacity-0"
       />
       <Handle
         type="source"
+        id="person-left"
         position={Position.Left}
         className="opacity-0"
       />
