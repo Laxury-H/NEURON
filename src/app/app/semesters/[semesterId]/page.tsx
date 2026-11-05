@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { Semester, Course } from "@/types/database";
+import { Semester, Course, DocumentItem } from "@/types/database";
 import { DataRepository } from "@/lib/data/repository";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,13 @@ import { Input } from "@/components/ui/input";
 import { CourseDialog } from "@/components/courses/course-dialog";
 import { SemesterDialog } from "@/components/semesters/semester-dialog";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
+import { DocumentPreviewDialog } from "@/components/graph/document-preview-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   Folder,
@@ -26,6 +33,8 @@ import {
   FileText,
   Network,
   Search,
+  Eye,
+  Download,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -53,6 +62,40 @@ export default function SemesterDetailPage() {
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [courseToDelete, setCourseToDelete] = useState<Course | null>(null);
+
+  // Course Documents Quick Inspection Dialog
+  const [courseDocsModal, setCourseDocsModal] = useState<{
+    course: Course;
+    documents: DocumentItem[];
+  } | null>(null);
+  const [docForPreview, setDocForPreview] = useState<DocumentItem | null>(null);
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+
+  const handleOpenCourseDocs = async (c: Course) => {
+    try {
+      const graphData = await DataRepository.getCourseGraphData(c.id);
+      if (graphData) {
+        setCourseDocsModal({
+          course: c,
+          documents: graphData.documents,
+        });
+      }
+    } catch {
+      toast.error("Failed to load course documents");
+    }
+  };
+
+  const handleDownloadDoc = (doc: DocumentItem) => {
+    if (doc.download_url) {
+      const a = window.document.createElement("a");
+      a.href = doc.download_url;
+      a.download = doc.original_file_name;
+      window.document.body.appendChild(a);
+      a.click();
+      window.document.body.removeChild(a);
+      toast.success(`Downloading ${doc.original_file_name}`);
+    }
+  };
 
   const loadData = React.useCallback(async () => {
     setLoading(true);
@@ -374,10 +417,15 @@ export default function SemesterDetailPage() {
                       <Users className="h-3 w-3" />
                       <span>{course.people_count ?? 0}</span>
                     </span>
-                    <span className="flex items-center space-x-1">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenCourseDocs(course)}
+                      className="flex items-center space-x-1 hover:text-foreground hover:underline transition-colors cursor-pointer"
+                      title={`View ${course.documents_count ?? 0} files linked to ${course.course_code}`}
+                    >
                       <FileText className="h-3 w-3" />
                       <span>{course.documents_count ?? 0}</span>
-                    </span>
+                    </button>
                   </div>
 
                   <div className="flex items-center space-x-2">
@@ -429,6 +477,117 @@ export default function SemesterDetailPage() {
         description="Are you sure you want to delete this course? Associated graph records, links to people and documents will be removed."
         confirmLabel="Delete Course"
         onConfirm={handleDeleteCourse}
+      />
+
+      {/* Course Linked Documents Vault Modal */}
+      <Dialog
+        open={!!courseDocsModal}
+        onOpenChange={(open) => !open && setCourseDocsModal(null)}
+      >
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-0 border border-border">
+          <DialogHeader className="p-4 border-b border-border bg-muted/20">
+            <DialogTitle className="text-sm font-semibold flex items-center justify-between">
+              <span className="flex items-center space-x-2">
+                <FileText className="h-4 w-4" />
+                <span>
+                  {courseDocsModal?.course.course_code} — Course Documents Vault
+                </span>
+              </span>
+              <Badge variant="subtle" className="text-[10px] font-mono">
+                {courseDocsModal?.documents.length ?? 0} Files
+              </Badge>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-2.5 max-h-[60vh]">
+            {!courseDocsModal?.documents || courseDocsModal.documents.length === 0 ? (
+              <div className="p-8 text-center text-xs text-muted-foreground font-mono">
+                No documents currently attached to this course.
+              </div>
+            ) : (
+              courseDocsModal.documents.map((doc) => (
+                <div
+                  key={doc.id}
+                  className="flex items-center justify-between p-3 rounded-md border border-border bg-card hover:border-neutral-500 transition-colors"
+                >
+                  <div className="flex items-center space-x-3 truncate min-w-0 pr-2">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-muted text-foreground border border-border font-mono text-xs">
+                      <FileText className="h-4 w-4" />
+                    </div>
+                    <div className="truncate">
+                      <h4
+                        className="text-xs font-semibold text-foreground truncate"
+                        title={doc.original_file_name}
+                      >
+                        {doc.original_file_name}
+                      </h4>
+                      <div className="flex items-center space-x-2 text-[10px] font-mono text-muted-foreground mt-0.5">
+                        <Badge variant="subtle" className="text-[9px] uppercase px-1 py-0 h-4">
+                          {doc.category}
+                        </Badge>
+                        <span>{(doc.file_size / 1024 / 1024).toFixed(2)} MB</span>
+                        {doc.storage_path && (
+                          <span className="hidden sm:inline truncate max-w-[200px]">
+                            • {doc.storage_path}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-1.5 shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs px-2 font-mono"
+                      onClick={() => {
+                        setDocForPreview(doc);
+                        setPreviewDialogOpen(true);
+                      }}
+                      title="Preview Document"
+                    >
+                      <Eye className="h-3 w-3 mr-1" />
+                      View
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="iconSm"
+                      className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                      onClick={() => handleDownloadDoc(doc)}
+                      title="Download File"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="p-3 border-t border-border bg-muted/20 flex items-center justify-between text-xs text-muted-foreground">
+            <span className="font-mono text-[11px]">
+              Files mapped to <code>D:\2026.1</code>
+            </span>
+            {courseDocsModal && (
+              <Link
+                href={`/app/semesters/${semester.id}/courses/${courseDocsModal.course.id}`}
+                className="inline-flex items-center space-x-1 text-xs font-medium text-foreground hover:underline"
+              >
+                <span>Open in Neural Graph</span>
+                <ArrowRight className="h-3 w-3 ml-0.5" />
+              </Link>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* In-App Document Preview Modal */}
+      <DocumentPreviewDialog
+        open={previewDialogOpen}
+        onOpenChange={setPreviewDialogOpen}
+        document={docForPreview}
+        onDownload={() => docForPreview && handleDownloadDoc(docForPreview)}
       />
     </div>
   );

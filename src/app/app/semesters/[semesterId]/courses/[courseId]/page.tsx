@@ -162,7 +162,7 @@ export default function CourseGraphPage() {
       </header>
 
       {/* Main Graph Canvas */}
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 min-h-0 w-full h-full relative overflow-hidden">
         <CourseGraphCanvas courseId={courseId} semesterId={semesterId} />
       </div>
     </div>

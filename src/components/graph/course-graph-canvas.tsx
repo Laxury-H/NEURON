@@ -87,9 +87,9 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
   const [allDocuments, setAllDocuments] = useState<DocumentItem[]>([]);
   const [savedLayout, setSavedLayout] = useState<CourseGraphLayout | null>(null);
 
-  // Expansion state
-  const [expandRelationships, setExpandRelationships] = useState<boolean>(false);
-  const [expandFiles, setExpandFiles] = useState<boolean>(false);
+  // Expansion state — default to expanded so all files & people nodes are immediately visible
+  const [expandRelationships, setExpandRelationships] = useState<boolean>(true);
+  const [expandFiles, setExpandFiles] = useState<boolean>(true);
   const [showMiniMap, setShowMiniMap] = useState<boolean>(false);
   const [shortcutsOpen, setShortcutsOpen] = useState<boolean>(false);
 
@@ -403,6 +403,16 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
     setNodes,
     setEdges,
   ]);
+
+  // Auto-fit view when nodes are first populated or clusters toggled
+  useEffect(() => {
+    if (nodes.length > 0) {
+      const timer = setTimeout(() => {
+        fitView({ padding: 0.25, duration: 300 });
+      }, 80);
+      return () => clearTimeout(timer);
+    }
+  }, [courseId, fitView, nodes.length, expandRelationships, expandFiles]);
 
   // Node Drag Stop -> Save Positions
   const onNodeDragStop: OnNodeDrag = useCallback(
@@ -955,6 +965,8 @@ function InnerGraphCanvas({ courseId, semesterId }: CourseGraphCanvasProps) {
       <ReactFlow
         nodes={nodes}
         edges={edges}
+        className="w-full h-full"
+        style={{ width: "100%", height: "100%" }}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onNodeDragStop={onNodeDragStop}
